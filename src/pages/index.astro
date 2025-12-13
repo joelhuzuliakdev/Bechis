@@ -191,109 +191,112 @@ console.log("Productos cargados en Astro:", products?.length);
 
     <!-- MODAL DE PERSONALIZACIÓN -->
     <div
-      id="customize-modal"
-      class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-2xl">
-        <div class="flex items-center justify-between p-6 border-b border-zinc-800">
-          <h2 class="text-xl font-semibold text-zinc-50">Personalizar producto</h2>
-          <button
-            id="btn-close-customize"
-            class="text-zinc-400 hover:text-zinc-200 transition"
-            type="button"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
+  id="customize-modal"
+  class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
+  role="dialog"
+  aria-modal="true"
+>
+  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+    <!-- Header del modal - FIJO -->
+    <div class="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-800 flex-shrink-0">
+      <h2 class="text-lg sm:text-xl font-semibold text-zinc-50">Personalizar producto</h2>
+      <button
+        id="btn-close-customize"
+        class="text-zinc-400 hover:text-zinc-200 transition"
+        type="button"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
 
-        <div class="p-6 overflow-y-auto max-h-[60vh]">
-          <div id="customize-content">
-            <!-- Quitar ingredientes -->
-            <div class="mb-4">
-              <h3 class="text-sm font-semibold text-zinc-100 mb-2">
-                ¿Querés sacar algo?
-              </h3>
-              <p class="text-xs text-zinc-400 mb-2">
-                Tildá lo que NO querés que lleve tu pedido:
-              </p>
-              <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-remove" value="sin queso" />
-                  <span>Sin queso</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-remove" value="sin cebolla" />
-                  <span>Sin cebolla</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-remove" value="sin lechuga" />
-                  <span>Sin lechuga</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-remove" value="sin tomate" />
-                  <span>Sin tomate</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-remove" value="sin aderezos" />
-                  <span>Sin aderezos</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Extras -->
-            <div class="mb-4">
-              <h3 class="text-sm font-semibold text-zinc-100 mb-2">
-                Extras (se suman al precio):
-              </h3>
-              <p class="text-xs text-zinc-400 mb-2">
-                Elegí si querés agregar algo extra a tu pedido. El importe se suma al precio base.
-              </p>
-              <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-extra" data-extra="3000" value="extra queso" />
-                  <span>Extra queso (+$3.000)</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-extra" data-extra="3000" value="extra bacon" />
-                  <span>Extra bacon (+$3.000)</span>
-                </label>
-                <label class="inline-flex items-center gap-1 bg-zinc-800 rounded-full px-3 py-1 cursor-pointer">
-                  <input type="checkbox" class="opt-extra" data-extra="3000" value="carne extra" />
-                  <span>Carne extra (+$3.000)</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Notas libres -->
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-zinc-300 mb-2">
-                Notas especiales:
-              </label>
-              <textarea
-                id="custom-notes"
-                class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                rows="3"
-                placeholder="Ej: bien cocida, sin sal, cortar a la mitad..."
-              ></textarea>
-            </div>
+    <!-- Contenido con scroll - SCROLLEABLE -->
+    <div class="p-4 sm:p-6 overflow-y-auto flex-1">
+      <div id="customize-content">
+        <!-- Quitar ingredientes -->
+        <div class="mb-6">
+          <h3 class="text-sm font-semibold text-zinc-100 mb-2">
+            ¿Querés sacar algo?
+          </h3>
+          <p class="text-xs text-zinc-400 mb-3">
+            Tildá lo que NO querés que lleve tu pedido:
+          </p>
+          <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-remove" value="sin queso" />
+              <span>Sin queso</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-remove" value="sin cebolla" />
+              <span>Sin cebolla</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-remove" value="sin lechuga" />
+              <span>Sin lechuga</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-remove" value="sin tomate" />
+              <span>Sin tomate</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-remove" value="sin aderezos" />
+              <span>Sin aderezos</span>
+            </label>
           </div>
         </div>
 
-        <div class="p-6 border-t border-zinc-800">
-          <button
-            id="btn-add-customized"
-            class="w-full rounded-full bg-amber-400 hover:bg-amber-300 px-6 py-3 text-sm font-semibold text-zinc-950 transition active:scale-95"
-            type="button"
-          >
-            Agregar al carrito
-          </button>
+        <!-- Extras -->
+        <div class="mb-6">
+          <h3 class="text-sm font-semibold text-zinc-100 mb-2">
+            Extras (se suman al precio):
+          </h3>
+          <p class="text-xs text-zinc-400 mb-3">
+            Elegí si querés agregar algo extra a tu pedido. El importe se suma al precio base.
+          </p>
+          <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-extra" data-extra="3000" value="extra queso" />
+              <span>Extra queso (+$3.000)</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-extra" data-extra="3000" value="extra bacon" />
+              <span>Extra bacon (+$3.000)</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 bg-zinc-800 rounded-full px-3 py-2 cursor-pointer hover:bg-zinc-700 transition">
+              <input type="checkbox" class="opt-extra" data-extra="3000" value="carne extra" />
+              <span>Carne extra (+$3.000)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Notas libres -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-zinc-300 mb-2">
+            Notas especiales:
+          </label>
+          <textarea
+            id="custom-notes"
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            rows="3"
+            placeholder="Ej: bien cocida, sin sal, cortar a la mitad..."
+          ></textarea>
         </div>
       </div>
     </div>
+
+    <!-- Footer con botón - FIJO -->
+    <div class="p-4 sm:p-6 border-t border-zinc-800 flex-shrink-0">
+      <button
+        id="btn-add-customized"
+        class="w-full rounded-full bg-amber-400 hover:bg-amber-300 px-6 py-3 text-sm font-semibold text-zinc-950 transition active:scale-95"
+        type="button"
+      >
+        Agregar al carrito
+      </button>
+    </div>
+  </div>
+</div>
 
     <!-- MODAL DE CONFIRMACIÓN ANTES DE AGREGAR -->
     <div
