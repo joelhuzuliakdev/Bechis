@@ -8,7 +8,9 @@ console.log("Productos cargados en Astro:", products?.length);
   <main class="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950">
     <section class="container mx-auto px-4 py-8">
       <!-- HEADER / NAV CON LOGO + BOTÓN CARRITO -->
-      <section class="fixed top-0 left-0 w-full z-50 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 py-4">
+      <section
+        class="fixed top-0 left-0 w-full z-50 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 py-4"
+      >
         <div class="flex items-center gap-3">
           <div
             class="h-12 w-12 rounded-full bg-amber-400 flex items-center justify-center text-zinc-950 text-xl font-black shadow-lg shadow-amber-500/40"
@@ -25,9 +27,10 @@ console.log("Productos cargados en Astro:", products?.length);
           </div>
         </div>
 
+        <!-- Carrito centrado en mobile, mismo tamaño -->
         <button
           id="btn-open-cart"
-          class="inline-flex items-center gap-2 rounded-full border border-amber-400 bg-zinc-900 px-4 py-2 text-sm font-medium text-amber-300 hover:bg-amber-400 hover:text-zinc-950 transition shadow-md shadow-amber-500/30"
+          class="self-center sm:self-auto inline-flex items-center gap-2 rounded-full border border-amber-400 bg-zinc-900 px-4 py-2 text-sm font-medium text-amber-300 hover:bg-amber-400 hover:text-zinc-950 transition shadow-md shadow-amber-500/30"
           type="button"
           aria-label="Abrir carrito de compras"
         >
@@ -53,7 +56,9 @@ console.log("Productos cargados en Astro:", products?.length);
       <section class="pt-[140px] sm:pt-[110px] pb-6 px-4">
         <div class="container mx-auto">
           <!-- Estado de negocio y horarios -->
-          <div class="bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div
+            class="bg-gradient-to-r from-green-600/20 to-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3"
+          >
             <div class="flex items-center gap-2">
               <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
               <span class="text-green-400 font-semibold text-sm">Abierto ahora</span>
@@ -70,8 +75,18 @@ console.log("Productos cargados en Astro:", products?.length);
             <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <h3 class="text-sm font-semibold text-zinc-50 mb-2 flex items-center gap-2">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
                 </svg>
                 Zona de entrega
               </h3>
@@ -86,7 +101,12 @@ console.log("Productos cargados en Astro:", products?.length);
             <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <h3 class="text-sm font-semibold text-zinc-50 mb-2 flex items-center gap-2">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
                 </svg>
                 Métodos de pago
               </h3>
@@ -101,26 +121,21 @@ console.log("Productos cargados en Astro:", products?.length);
       </section>
 
       <!-- FILTROS -->
-      <section
-        id="filters"
-        class="flex flex-wrap gap-2 justify-center mb-8 text-sm px-4"
-      >
-        {
-          categories.map((cat) => (
-            <button
-              type="button"
-              data-filter={cat.id}
-              class={`filter-btn px-4 py-2 rounded-full border text-xs uppercase tracking-wide transition ${
-                cat.id === "todos"
-                  ? "bg-amber-400 border-amber-400 text-zinc-950 font-semibold shadow shadow-amber-500/40"
-                  : "bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-              }`}
-              aria-label={`Filtrar por ${cat.name}`}
-            >
-              {cat.name}
-            </button>
-          ))
-        }
+      <section id="filters" class="flex flex-wrap gap-2 justify-center mb-8 text-sm px-4">
+        {categories.map((cat) => (
+          <button
+            type="button"
+            data-filter={cat.id}
+            class={`filter-btn px-4 py-2 rounded-full border text-xs uppercase tracking-wide transition ${
+              cat.id === "todos"
+                ? "bg-amber-400 border-amber-400 text-zinc-950 font-semibold shadow shadow-amber-500/40"
+                : "bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            }`}
+            aria-label={`Filtrar por ${cat.name}`}
+          >
+            {cat.name}
+          </button>
+        ))}
       </section>
 
       <!-- CONTADOR DE PRODUCTOS -->
@@ -129,76 +144,73 @@ console.log("Productos cargados en Astro:", products?.length);
       </p>
 
       <!-- GRID DE PRODUCTOS -->
-      <section
-        id="products-grid"
-        class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {
-          products.map((product) => (
-            <article
-              class="product-card bg-zinc-900/90 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col shadow-lg shadow-black/50 hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 transition-all duration-300"
-              data-category={product.category}
-              data-id={product.id}
-              data-price={product.price}
-              data-name={product.name}
-              data-description={product.description}
-              style="animation: fadeIn 0.5s ease-out"
-            >
-              <div class="h-56 w-full bg-zinc-800 overflow-hidden relative">
-                <img
-                  src={product.image}
-                  alt={`${product.name} - ${product.description}`}
-                  class="h-full w-full object-cover hover:scale-105 transition-transform duration-500 product-image"
-                  loading="lazy"
-                />
-                <!-- Badge de Popular o Nuevo -->
-                {product.badge && (
-                  <span class={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
-                    product.badge === 'popular' 
-                      ? 'bg-amber-400 text-zinc-950' 
-                      : 'bg-green-500 text-white'
-                  }`}>
-                    {product.badge === 'popular' ? '🔥 Popular' : '✨ Nuevo'}
-                  </span>
-                )}
+      <section id="products-grid" class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {products.map((product) => (
+          <article
+            class="product-card bg-zinc-900/90 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col shadow-lg shadow-black/50 hover:-translate-y-1 hover:shadow-2xl hover:border-zinc-700 transition-all duration-300"
+            data-category={product.category}
+            data-id={product.id}
+            data-price={product.price}
+            data-name={product.name}
+            data-description={product.description}
+            style="animation: fadeIn 0.5s ease-out"
+          >
+            <div class="h-56 w-full bg-zinc-800 overflow-hidden relative">
+              <img
+                src={product.image}
+                alt={`${product.name} - ${product.description}`}
+                class="h-full w-full object-cover hover:scale-105 transition-transform duration-500 product-image"
+                loading="lazy"
+              />
+              {/* Badge Popular / Nuevo */}
+              {product.badge && (
+                <span
+                  class={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
+                    product.badge === "popular"
+                      ? "bg-amber-400 text-zinc-950"
+                      : "bg-green-500 text-white"
+                  }`}
+                >
+                  {product.badge === "popular" ? "🔥 Popular" : "✨ Nuevo"}
+                </span>
+              )}
+            </div>
+
+            <div class="p-4 flex flex-col flex-1">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-semibold text-zinc-50 text-sm product-name">
+                  {product.name}
+                </h3>
+                <span class="text-amber-400 font-bold text-sm whitespace-nowrap product-price">
+                  ${product.price.toLocaleString("es-AR")}
+                </span>
               </div>
 
-              <div class="p-4 flex flex-col flex-1">
-                <div class="flex items-start justify-between gap-2 mb-2">
-                  <h3 class="font-semibold text-zinc-50 text-sm product-name">
-                    {product.name}
-                  </h3>
-                  <span class="text-amber-400 font-bold text-sm whitespace-nowrap product-price">
-                    ${product.price.toLocaleString("es-AR")}
-                  </span>
-                </div>
+              <p class="text-xs text-zinc-400 mb-3 line-clamp-2 product-description">
+                {product.description}
+              </p>
 
-                <p class="text-xs text-zinc-400 mb-3 line-clamp-2 product-description">
-                  {product.description}
-                </p>
-
-                <div class="mt-auto flex gap-2">
-                  <button
-                    type="button"
-                    class="btn-customize flex-1 rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-medium text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 transition"
-                    data-product-id={product.id}
-                    aria-label={`Personalizar ${product.name}`}
-                  >
-                    Personalizar
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-add flex-1 rounded-full bg-amber-400 px-3 py-2 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300 transition active:scale-95"
-                    data-product-id={product.id}
-                    aria-label={`Agregar ${product.name} al carrito`}
-                  >
-                    Agregar
-                  </button>
-                </div>
+              <div class="mt-auto flex gap-2">
+                <button
+                  type="button"
+                  class="btn-customize flex-1 rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-medium text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 transition"
+                  data-product-id={product.id}
+                  aria-label={`Personalizar ${product.name}`}
+                >
+                  Personalizar
+                </button>
+                <button
+                  type="button"
+                  class="btn-add flex-1 rounded-full bg-amber-400 px-3 py-2 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300 transition active:scale-95"
+                  data-product-id={product.id}
+                  aria-label={`Agregar ${product.name} al carrito`}
+                >
+                  Agregar
+                </button>
               </div>
-            </article>
-          ))
-        }
+            </div>
+          </article>
+        ))}
       </section>
     </section>
 
@@ -210,10 +222,14 @@ console.log("Productos cargados en Astro:", products?.length);
       aria-modal="true"
       aria-labelledby="cart-title"
     >
-      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up">
+      <div
+        class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up"
+      >
         <!-- Header del modal -->
         <div class="flex items-center justify-between p-6 border-b border-zinc-800">
-          <h2 id="cart-title" class="text-xl font-semibold text-zinc-50">Tu Pedido</h2>
+          <h2 id="cart-title" class="text-xl font-semibold text-zinc-50">
+            Tu Pedido
+          </h2>
           <button
             id="btn-close-cart"
             class="text-zinc-400 hover:text-zinc-200 transition"
@@ -242,7 +258,9 @@ console.log("Productos cargados en Astro:", products?.length);
         <div class="p-6 border-t border-zinc-800 bg-zinc-950/50">
           <div class="flex items-center justify-between mb-4">
             <span class="text-zinc-400 text-sm">Total:</span>
-            <span id="cart-total" class="text-2xl font-bold text-amber-400">$0</span>
+            <span id="cart-total" class="text-2xl font-bold text-amber-400">
+              $0
+            </span>
           </div>
 
           <button
@@ -269,10 +287,14 @@ console.log("Productos cargados en Astro:", products?.length);
       role="dialog"
       aria-modal="true"
     >
-      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+      <div
+        class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
+      >
         <!-- Header del modal - FIJO -->
         <div class="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-800 flex-shrink-0">
-          <h2 class="text-lg sm:text-xl font-semibold text-zinc-50">Personalizar producto</h2>
+          <h2 class="text-lg sm:text-xl font-semibold text-zinc-50">
+            Personalizar producto
+          </h2>
           <button
             id="btn-close-customize"
             class="text-zinc-400 hover:text-zinc-200 transition"
@@ -295,7 +317,7 @@ console.log("Productos cargados en Astro:", products?.length);
           </button>
         </div>
 
-        <!-- Contenido con scroll - SCROLLEABLE -->
+        <!-- Contenido con scroll -->
         <div class="p-4 sm:p-6 overflow-y-auto flex-1">
           <div id="customize-content">
             <!-- Quitar ingredientes -->
@@ -307,24 +329,54 @@ console.log("Productos cargados en Astro:", products?.length);
                 Tildá lo que NO querés que lleve tu pedido:
               </p>
               <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
-                  <input type="checkbox" class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0" value="sin queso" />
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
+                    value="sin queso"
+                  />
                   <span>Sin queso</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
-                  <input type="checkbox" class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0" value="sin cebolla" />
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
+                    value="sin cebolla"
+                  />
                   <span>Sin cebolla</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
-                  <input type="checkbox" class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0" value="sin lechuga" />
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
+                    value="sin lechuga"
+                  />
                   <span>Sin lechuga</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
-                  <input type="checkbox" class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0" value="sin tomate" />
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
+                    value="sin tomate"
+                  />
                   <span>Sin tomate</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
-                  <input type="checkbox" class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0" value="sin aderezos" />
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="opt-remove w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
+                    value="sin aderezos"
+                  />
                   <span>Sin aderezos</span>
                 </label>
               </div>
@@ -339,7 +391,9 @@ console.log("Productos cargados en Astro:", products?.length);
                 Elegí si querés agregar algo extra a tu pedido. El importe se suma al precio base.
               </p>
               <div class="flex flex-wrap gap-2 text-xs text-zinc-200">
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
                   <input
                     type="checkbox"
                     class="opt-extra w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
@@ -348,7 +402,9 @@ console.log("Productos cargados en Astro:", products?.length);
                   />
                   <span>Extra queso (+$3.000)</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
                   <input
                     type="checkbox"
                     class="opt-extra w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
@@ -357,7 +413,9 @@ console.log("Productos cargados en Astro:", products?.length);
                   />
                   <span>Extra bacon (+$3.000)</span>
                 </label>
-                <label class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600">
+                <label
+                  class="inline-flex items-center gap-2 bg-zinc-800 rounded-full px-4 py-2.5 cursor-pointer hover:bg-zinc-700 transition active:bg-zinc-600"
+                >
                   <input
                     type="checkbox"
                     class="opt-extra w-4 h-4 rounded border-zinc-600 text-amber-400 focus:ring-amber-400 focus:ring-offset-0"
@@ -391,7 +449,7 @@ console.log("Productos cargados en Astro:", products?.length);
             class="w-full rounded-full bg-amber-400 hover:bg-amber-300 px-6 py-3 text-sm font-semibold text-zinc-950 transition active:scale-95"
             type="button"
           >
-            Agregar al carrito
+            Guardar cambios
           </button>
         </div>
       </div>
@@ -410,7 +468,8 @@ console.log("Productos cargados en Astro:", products?.length);
             ¿Querés personalizar tu pedido antes de agregarlo?
           </h2>
           <p class="text-sm text-zinc-300 mb-6">
-            Podés sacar ingredientes (sin lechuga, sin salsas, etc.) o sumar extras como queso, bacon o carne extra.
+            Podés sacar ingredientes (sin lechuga, sin salsas, etc.) o sumar extras como queso,
+            bacon o carne extra.
           </p>
           <div class="flex flex-col sm:flex-row justify-end gap-3">
             <button
@@ -458,7 +517,8 @@ console.log("Productos cargados en Astro:", products?.length);
     }
 
     @keyframes pulse {
-      0%, 100% {
+      0%,
+      100% {
         opacity: 1;
       }
       50% {
@@ -473,7 +533,7 @@ console.log("Productos cargados en Astro:", products?.length);
     .animate-pulse {
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    
+
     /* Prevenir zoom en iOS en inputs */
     input[type="checkbox"],
     input[type="text"],
@@ -481,7 +541,7 @@ console.log("Productos cargados en Astro:", products?.length);
     button {
       touch-action: manipulation;
     }
-    
+
     /* Estilos para checkboxes visibles en móviles */
     input[type="checkbox"].opt-remove,
     input[type="checkbox"].opt-extra {
@@ -497,13 +557,13 @@ console.log("Productos cargados en Astro:", products?.length);
       flex-shrink: 0;
       transition: all 0.2s;
     }
-    
+
     input[type="checkbox"].opt-remove:checked,
     input[type="checkbox"].opt-extra:checked {
       background-color: #fbbf24;
       border-color: #fbbf24;
     }
-    
+
     input[type="checkbox"].opt-remove:checked::after,
     input[type="checkbox"].opt-extra:checked::after {
       content: "✓";
@@ -515,7 +575,7 @@ console.log("Productos cargados en Astro:", products?.length);
       font-size: 0.75rem;
       font-weight: bold;
     }
-    
+
     /* Mejorar visibilidad de modales en móviles */
     @media (max-width: 640px) {
       #confirm-add-modal .bg-zinc-900,
@@ -523,7 +583,7 @@ console.log("Productos cargados en Astro:", products?.length);
       #cart-modal .bg-zinc-900 {
         max-height: 90vh;
       }
-      
+
       /* Aumentar el área táctil de los labels */
       label {
         min-height: 44px;
@@ -539,10 +599,11 @@ console.log("Productos cargados en Astro:", products?.length);
       // DATOS DEL CARRITO (en memoria)
       let cart = [];
       let currentCustomizingProduct = null;
-      let pendingProductId = null; // para el modal de confirmación
+      let pendingProductId = null;
+      let editingCartIndex = null; // índice del ítem que se está editando (desde el carrito)
 
-      // NÚMERO DE WHATSAPP (cambiar por el tuyo)
-      const WHATSAPP_NUMBER = "3572548014"; // Formato: código país + número
+      // NÚMERO DE WHATSAPP
+      const WHATSAPP_NUMBER = "3572548014";
 
       // Elementos del DOM
       const btnOpenCart = document.getElementById("btn-open-cart");
@@ -567,17 +628,21 @@ console.log("Productos cargados en Astro:", products?.length);
       const extraOptions = document.querySelectorAll(".opt-extra");
 
       // SERIALIZAR PRODUCTOS DESDE EL DOM
-      const productsData = Array.from(document.querySelectorAll(".product-card")).map(card => {
-        const id = card.dataset.id;
-        const name = card.querySelector(".product-name")?.textContent?.trim() || "";
-        const price = parseFloat(card.dataset.price || "0");
-        const image = card.querySelector(".product-image")?.getAttribute("src") || "";
-        const description = card.querySelector(".product-description")?.textContent?.trim() || "";
-        const category = card.dataset.category || "todos";
-        return { id, name, price, image, description, category };
-      });
+      const productsData = Array.from(document.querySelectorAll(".product-card")).map(
+        (card) => {
+          const id = card.dataset.id;
+          const name = card.querySelector(".product-name")?.textContent?.trim() || "";
+          const price = parseFloat(card.dataset.price || "0");
+          const image = card.querySelector(".product-image")?.getAttribute("src") || "";
+          const description =
+            card.querySelector(".product-description")?.textContent?.trim() || "";
+          const category = card.dataset.category || "todos";
+          return { id, name, price, image, description, category };
+        }
+      );
 
       // ============ FUNCIONES DE CARRITO ============
+
       function addToCart(productId, optionsOrNotes) {
         const product = productsData.find((p) => p.id === String(productId));
         if (!product) {
@@ -597,25 +662,15 @@ console.log("Productos cargados en Astro:", products?.length);
 
         const finalPrice = product.price + extraAmount;
 
-        const existingItem = cart.find(
-          (item) =>
-            item.id === productId &&
-            item.notes === notes &&
-            (item.extraAmount || 0) === extraAmount
-        );
-
-        if (existingItem) {
-          existingItem.quantity++;
-        } else {
-          cart.push({
-            ...product,
-            price: finalPrice,
-            basePrice: product.price,
-            extraAmount,
-            quantity: 1,
-            notes,
-          });
-        }
+        // Siempre crear un nuevo ítem en el carrito
+        cart.push({
+          ...product,
+          price: finalPrice,
+          basePrice: product.price,
+          extraAmount,
+          quantity: 1,
+          notes,
+        });
 
         updateCart();
         showNotification(`Se agregó "${product.name}" al carrito`);
@@ -636,7 +691,7 @@ console.log("Productos cargados en Astro:", products?.length);
       }
 
       function calculateTotal() {
-        return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       }
 
       function updateCart() {
@@ -651,33 +706,101 @@ console.log("Productos cargados en Astro:", products?.length);
         } else {
           cartItems.innerHTML = cart
             .map(
-              (item, index) => `<div class="flex gap-3 mb-4 pb-4 border-b border-zinc-800 last:border-0">
-            <img src="${item.image}" alt="${item.name}" class="w-16 h-16 rounded-lg object-cover bg-zinc-800" loading="lazy"/>
+              (item, index) => `
+          <div class="flex gap-3 mb-4 pb-4 border-b border-zinc-800 last:border-0">
+            <img
+              src="${item.image}"
+              alt="${item.name}"
+              class="w-16 h-16 rounded-lg object-cover bg-zinc-800"
+              loading="lazy"
+            />
             <div class="flex-1">
               <div class="flex items-start justify-between">
                 <h3 class="text-sm font-medium text-zinc-50">${item.name}</h3>
                 <p class="text-xs text-zinc-400">$${item.price.toLocaleString("es-AR")}</p>
               </div>
-              ${item.notes ? `<p class="text-xs text-amber-400 italic mt-1">${item.notes}</p>` : ""}
+              ${
+                item.notes
+                  ? `<p class="text-xs text-amber-400 italic mt-1">${item.notes}</p>`
+                  : ""
+              }
               <div class="flex items-center gap-2 mt-2">
-                <button class="btn-decrease w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition" data-index="${index}" aria-label="Disminuir cantidad">−</button>
+                <button
+                  class="btn-decrease w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition"
+                  data-index="${index}"
+                  aria-label="Disminuir cantidad"
+                >
+                  −
+                </button>
                 <span class="text-sm text-zinc-300 min-w-[20px] text-center">${item.quantity}</span>
-                <button class="btn-increase w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition" data-index="${index}" aria-label="Aumentar cantidad">+</button>
-                <button class="btn-remove ml-auto text-xs text-red-400 hover:text-red-300 transition" data-index="${index}" aria-label="Eliminar del carrito">Eliminar</button>
+                <button
+                  class="btn-increase w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition"
+                  data-index="${index}"
+                  aria-label="Aumentar cantidad"
+                >
+                  +
+                </button>
+
+                <!-- Contenedor derecho en columna -->
+                <div class="ml-auto flex flex-col items-end gap-1">
+<button
+  class="btn-edit text-xs text-amber-300 hover:text-amber-200 transition"
+  data-index="${index}"
+  aria-label="Volver a personalizar este producto"
+>
+  Personalizar
+</button>
+
+                  <button
+                    class="btn-remove text-xs text-red-400 hover:text-red-300 transition"
+                    data-index="${index}"
+                    aria-label="Eliminar del carrito"
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </div>
           </div>`
             )
             .join("");
 
-          document.querySelectorAll(".btn-decrease").forEach(btn => {
-            btn.addEventListener("click", () => updateQuantity(parseInt(btn.dataset.index), -1));
+          // Eventos de cantidad
+          document.querySelectorAll(".btn-decrease").forEach((btn) => {
+            btn.addEventListener("click", () =>
+              updateQuantity(parseInt(btn.dataset.index), -1)
+            );
           });
-          document.querySelectorAll(".btn-increase").forEach(btn => {
-            btn.addEventListener("click", () => updateQuantity(parseInt(btn.dataset.index), 1));
+          document.querySelectorAll(".btn-increase").forEach((btn) => {
+            btn.addEventListener("click", () =>
+              updateQuantity(parseInt(btn.dataset.index), 1)
+            );
           });
-          document.querySelectorAll(".btn-remove").forEach(btn => {
-            btn.addEventListener("click", () => removeFromCart(parseInt(btn.dataset.index)));
+
+          // Evento ELIMINAR
+          document.querySelectorAll(".btn-remove").forEach((btn) => {
+            btn.addEventListener("click", () =>
+              removeFromCart(parseInt(btn.dataset.index))
+            );
+          });
+
+          // Evento PERSONALIZAR desde el carrito
+          document.querySelectorAll(".btn-edit").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const index = parseInt(btn.dataset.index);
+              const item = cart[index];
+              if (!item) return;
+
+              editingCartIndex = index;
+              currentCustomizingProduct = item.id;
+
+              // limpiamos checks y cargamos notas actuales en el textarea
+              removeOptions.forEach((o) => (o.checked = false));
+              extraOptions.forEach((o) => (o.checked = false));
+              customNotes.value = item.notes || "";
+
+              openModal(customizeModal);
+            });
           });
 
           btnWhatsApp.disabled = false;
@@ -687,8 +810,13 @@ console.log("Productos cargados en Astro:", products?.length);
       }
 
       // ============ MODAL HANDLERS ============
+
       function preventScroll(e) {
-        if (e.target.closest('#cart-modal') || e.target.closest('#customize-modal') || e.target.closest('#confirm-add-modal')) {
+        if (
+          e.target.closest("#cart-modal") ||
+          e.target.closest("#customize-modal") ||
+          e.target.closest("#confirm-add-modal")
+        ) {
           return;
         }
         e.preventDefault();
@@ -698,17 +826,15 @@ console.log("Productos cargados en Astro:", products?.length);
         modal.classList.remove("hidden");
         modal.classList.add("flex");
         document.body.style.overflow = "hidden";
-        // Forzar reflow para asegurar que el modal se muestre correctamente en móviles
         modal.offsetHeight;
-        // Prevenir scroll y zoom en iOS
-        document.addEventListener('touchmove', preventScroll, { passive: false });
+        document.addEventListener("touchmove", preventScroll, { passive: false });
       }
 
       function closeModal(modal) {
         modal.classList.add("hidden");
         modal.classList.remove("flex");
         document.body.style.overflow = "";
-        document.removeEventListener('touchmove', preventScroll);
+        document.removeEventListener("touchmove", preventScroll);
       }
 
       btnOpenCart?.addEventListener("click", () => openModal(cartModal));
@@ -717,9 +843,20 @@ console.log("Productos cargados en Astro:", products?.length);
         if (e.target === cartModal) closeModal(cartModal);
       });
 
-      btnCloseCustomize?.addEventListener("click", () => closeModal(customizeModal));
+      btnCloseCustomize?.addEventListener("click", () => {
+        closeModal(customizeModal);
+        currentCustomizingProduct = null;
+        editingCartIndex = null;
+        removeOptions.forEach((o) => (o.checked = false));
+        extraOptions.forEach((o) => (o.checked = false));
+        customNotes.value = "";
+      });
       customizeModal?.addEventListener("click", (e) => {
-        if (e.target === customizeModal) closeModal(customizeModal);
+        if (e.target === customizeModal) {
+          closeModal(customizeModal);
+          currentCustomizingProduct = null;
+          editingCartIndex = null;
+        }
       });
 
       confirmModal?.addEventListener("click", (e) => {
@@ -727,22 +864,26 @@ console.log("Productos cargados en Astro:", products?.length);
       });
 
       // ============ BOTONES DE PRODUCTOS ============
-      document.querySelectorAll(".btn-add").forEach(btn => {
+
+      document.querySelectorAll(".btn-add").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           pendingProductId = btn.dataset.productId;
+          editingCartIndex = null; // es un alta nueva
           openModal(confirmModal);
         });
       });
 
-      document.querySelectorAll(".btn-customize").forEach(btn => {
+      document.querySelectorAll(".btn-customize").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           currentCustomizingProduct = btn.dataset.productId;
-          removeOptions.forEach(o => o.checked = false);
-          extraOptions.forEach(o => o.checked = false);
+          pendingProductId = null;
+          editingCartIndex = null; // viene desde la grilla, no desde el carrito
+          removeOptions.forEach((o) => (o.checked = false));
+          extraOptions.forEach((o) => (o.checked = false));
           customNotes.value = "";
           openModal(customizeModal);
         });
@@ -764,15 +905,16 @@ console.log("Productos cargados en Astro:", products?.length);
           return;
         }
         currentCustomizingProduct = pendingProductId;
-        removeOptions.forEach(o => o.checked = false);
-        extraOptions.forEach(o => o.checked = false);
+        editingCartIndex = null; // es un alta personalizada
+        removeOptions.forEach((o) => (o.checked = false));
+        extraOptions.forEach((o) => (o.checked = false));
         customNotes.value = "";
         openModal(customizeModal);
         pendingProductId = null;
         closeModal(confirmModal);
       });
 
-      // Guardar producto personalizado
+      // Guardar producto personalizado (nuevo o edición)
       btnAddCustomized?.addEventListener("click", () => {
         if (!currentCustomizingProduct) return;
 
@@ -780,12 +922,12 @@ console.log("Productos cargados en Astro:", products?.length);
         let extraAmount = 0;
 
         // ingredientes que se sacan
-        removeOptions.forEach(opt => {
+        removeOptions.forEach((opt) => {
           if (opt.checked) notesParts.push(opt.value);
         });
 
         // extras en pesos
-        extraOptions.forEach(opt => {
+        extraOptions.forEach((opt) => {
           if (opt.checked) {
             const extra = parseFloat(opt.dataset.extra || "0");
             extraAmount += extra;
@@ -799,12 +941,40 @@ console.log("Productos cargados en Astro:", products?.length);
         }
 
         const notes = notesParts.join(" | ");
-        addToCart(currentCustomizingProduct, { notes, extraAmount });
+
+        // Si viene desde el carrito, EDITA el ítem
+        if (editingCartIndex !== null) {
+          const product = productsData.find(
+            (p) => p.id === String(currentCustomizingProduct)
+          );
+          if (!product) {
+            console.warn("Producto no encontrado al editar:", currentCustomizingProduct);
+          } else if (!cart[editingCartIndex]) {
+            console.warn("Ítem de carrito no encontrado al editar:", editingCartIndex);
+          } else {
+            const item = cart[editingCartIndex];
+            item.basePrice = product.price;
+            item.extraAmount = extraAmount;
+            item.price = product.price + extraAmount;
+            item.notes = notes;
+            // cantidad se mantiene
+            updateCart();
+          }
+        } else {
+          // Alta nueva como veníamos haciendo
+          addToCart(currentCustomizingProduct, { notes, extraAmount });
+        }
+
         closeModal(customizeModal);
         currentCustomizingProduct = null;
+        editingCartIndex = null;
+        removeOptions.forEach((o) => (o.checked = false));
+        extraOptions.forEach((o) => (o.checked = false));
+        customNotes.value = "";
       });
 
       // ============ FILTROS ============
+
       let activeFilter = "todos";
       const filterButtons = document.querySelectorAll(".filter-btn");
       const cards = document.querySelectorAll(".product-card");
@@ -815,7 +985,8 @@ console.log("Productos cargados en Astro:", products?.length);
 
         cards.forEach((card) => {
           const cardCategory = card.dataset.category;
-          const shouldShow = activeFilter === "todos" || cardCategory === activeFilter;
+          const shouldShow =
+            activeFilter === "todos" || cardCategory === activeFilter;
 
           if (shouldShow) {
             card.classList.remove("hidden");
@@ -837,16 +1008,24 @@ console.log("Productos cargados en Astro:", products?.length);
 
           filterButtons.forEach((b) => {
             b.classList.remove(
-              "bg-amber-400","border-amber-400","text-zinc-950",
-              "font-semibold","shadow","shadow-amber-500/40"
+              "bg-amber-400",
+              "border-amber-400",
+              "text-zinc-950",
+              "font-semibold",
+              "shadow",
+              "shadow-amber-500/40"
             );
-            b.classList.add("bg-zinc-900","border-zinc-700","text-zinc-300");
+            b.classList.add("bg-zinc-900", "border-zinc-700", "text-zinc-300");
           });
 
-          btn.classList.remove("bg-zinc-900","border-zinc-700","text-zinc-300");
+          btn.classList.remove("bg-zinc-900", "border-zinc-700", "text-zinc-300");
           btn.classList.add(
-            "bg-amber-400","border-amber-400","text-zinc-950",
-            "font-semibold","shadow","shadow-amber-500/40"
+            "bg-amber-400",
+            "border-amber-400",
+            "text-zinc-950",
+            "font-semibold",
+            "shadow",
+            "shadow-amber-500/40"
           );
 
           aplicarFiltro();
@@ -856,6 +1035,7 @@ console.log("Productos cargados en Astro:", products?.length);
       aplicarFiltro();
 
       // ============ NOTIFICACIONES ============
+
       function showNotification(message) {
         const notification = document.createElement("div");
         notification.className =
@@ -872,13 +1052,16 @@ console.log("Productos cargados en Astro:", products?.length);
       }
 
       // ============ WHATSAPP ============
+
       btnWhatsApp?.addEventListener("click", () => {
         if (cart.length === 0) return;
 
         let mensaje = "¡Hola! Quiero hacer el siguiente pedido:%0A%0A";
-        cart.forEach(item => {
+        cart.forEach((item) => {
           const subtotal = item.price * item.quantity;
-          mensaje += `🍔 ${item.quantity}x ${item.name} - ${subtotal.toLocaleString("es-AR")}%0A`;
+          mensaje += `🍔 ${item.quantity}x ${item.name} - ${subtotal.toLocaleString(
+            "es-AR"
+          )}%0A`;
           if (item.notes) {
             mensaje += `⚠️ ${item.notes}%0A`;
           }
