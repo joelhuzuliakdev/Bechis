@@ -20,13 +20,13 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
         <title>{title}</title>
     </head>
     <body>
-        <div class="min-h-screen w-full bg-surface-bg">
+        <div class="flex min-h-screen w-full flex-col bg-surface-bg">
         <header class="sticky top-0 z-40 flex items-center justify-between gap-3 bg-ink px-4 py-3 text-white border-b border-bechis-yellow">
             <div class="flex items-center gap-3">
                 {
                     showBack ? (
-                    <a
-                        href={backHref}
+                    
+                    <a   href={backHref}
                         aria-label="Volver"
                         class="flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors hover:bg-white/10"
                     >
@@ -41,8 +41,8 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
                 <span class="font-display text-lg tracking-tight">BECHIS</span>
             </div>
 
-            <a
-                href="/carrito"
+            
+            <a  href="/carrito"
                 aria-label="Ver carrito"
                 class="relative flex h-9 w-9 items-center justify-center rounded-lg border border-ink-muted bg-ink-soft"
                 >
@@ -54,7 +54,7 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
             </a>
         </header>
 
-        <main>
+        <main class="flex-1">
             <slot />
         </main>
 

@@ -23,6 +23,8 @@ const { data: featuredRaw, error: featuredError } = await supabasePublic
 	.limit(6);
 
 if (featuredError) console.error("Error cargando destacados:", featuredError.message);
+console.log("featuredError:", featuredError);
+console.log("featuredRaw:", JSON.stringify(featuredRaw, null, 2));
 
 const featuredProducts = (featuredRaw ?? []).map((p: any) => ({
 	id: p.id,

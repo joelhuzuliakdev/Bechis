@@ -1,0 +1,40 @@
+---
+// src/components/public/ProductCard.astro
+interface Props {
+	id: string;
+	name: string;
+	description: string | null;
+	price: number;
+	imageUrl: string | null;
+	categorySlug: string;
+}
+
+const { id, name, description, price, imageUrl, categorySlug } = Astro.props;
+
+const formattedPrice = new Intl.NumberFormat("es-AR", {
+	style: "currency",
+	currency: "ARS",
+	minimumFractionDigits: 0,
+}).format(price);
+---
+
+
+<a	href={`/categoria/${categorySlug}/producto/${id}`}
+	class="group flex gap-4 rounded-2xl border border-white/10 bg-ink p-3 transition-colors hover:border-bechis-yellow/40"
+>
+	<div class="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-ink-soft">
+		{
+			imageUrl ? (
+				<img src={imageUrl} alt={name} class="h-full w-full object-cover" loading="lazy" />
+			) : (
+				<span class="text-2xl">🍔</span>
+			)
+		}
+	</div>
+
+	<div class="flex min-w-0 flex-1 flex-col justify-center">
+		<h3 class="truncate text-sm font-semibold text-white">{name}</h3>
+		{description && <p class="mt-0.5 line-clamp-2 text-xs text-white/60">{description}</p>}
+		<span class="mt-1.5 text-sm font-bold text-bechis-yellow">{formattedPrice}</span>
+	</div>
+</a>
