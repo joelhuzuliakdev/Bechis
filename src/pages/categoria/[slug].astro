@@ -1,0 +1,62 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import ProductCard from "@/components/public/ProductCard.astro";
+import EmptyState from "@/components/ui/EmptyState.astro";
+import { supabasePublic } from "@/lib/supabase/public";
+import type { Category, Product } from "@/types";
+
+const { slug } = Astro.params;
+
+const { data: category } = await supabasePublic
+    .from("categories")
+    .select("id, name, slug, sort_order, active, icon_emoji, theme_class")
+    .eq("slug", slug)
+    .eq("active", true)
+    .maybeSingle<Category>();
+
+let products: Product[] = [];
+
+if (category) {
+    const { data, error } = await supabasePublic
+        .from("products")
+        .select("id, category_id, name, slug, description, price, image_url, stock, min_stock, active")
+        .eq("category_id", category.id)
+        .eq("active", true)
+        .order("name", { ascending: true })
+        .returns<Product[]>();
+
+    if (error) console.error("Error cargando productos:", error.message);
+    products = data ?? [];
+}
+---
+
+<PublicLayout title={category ? `${category.name} — Bechis` : "Bechis"} showBack backHref="/">
+    <div class="mx-auto w-full max-w-7xl px-4 pb-2 pt-4 md:px-8">
+        <h1 class="font-display text-xl text-text md:text-2xl">{category ? category.name : "Productos"}</h1>
+    </div>
+
+    <div class="mx-auto grid w-full max-w-7xl grid-cols-1 gap-2.5 px-4 pb-10 pt-1.5 md:grid-cols-2 md:px-8 lg:grid-cols-3">
+        {
+        !category ? (
+            <div class="md:col-span-2 lg:col-span-3">
+            <EmptyState message="No encontramos esa categoría." />
+            </div>
+        ) : products.length === 0 ? (
+            <div class="md:col-span-2 lg:col-span-3">
+            <EmptyState message="No hay productos en esta categoría todavía." />
+            </div>
+        ) : (
+            products.map((p) => (
+            <ProductCard
+                id={p.id}
+                name={p.name}
+                description={p.description}
+                price={p.price}
+                imageUrl={p.image_url}
+                categorySlug={category.slug}
+            />
+            ))
+        )
+        }
+    </div>
+</PublicLayout>

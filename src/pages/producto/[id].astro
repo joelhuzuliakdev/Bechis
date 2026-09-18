@@ -1,0 +1,211 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import EmptyState from "@/components/ui/EmptyState.astro";
+import { supabasePublic } from "@/lib/supabase/public";
+import { getPlaceholderColor, getPlaceholderEmoji } from "@/lib/ui/placeholders";
+import type { ProductWithIngredients } from "@/types";
+
+const { id } = Astro.params;
+
+const { data, error } = await supabasePublic
+    .from("products")
+    .select(
+        `
+        id, name, slug, description, price, image_url, stock, min_stock, active,
+        categories ( slug ),
+        product_ingredients (
+        ingredient_id, is_included, is_removable, is_addable_extra, price_override,
+        ingredients ( name, extra_price )
+        )
+    `
+    )
+    .eq("id", id)
+    .eq("active", true)
+    .maybeSingle();
+
+if (error) console.error("Error cargando producto:", error.message);
+
+// Transformamos el resultado "crudo" del join a la forma que espera
+// calculateProductPrice (ver lib/pricing/calculatePrice.ts).
+let product: (ProductWithIngredients & { categorySlug: string }) | null = null;
+
+if (data) {
+    const raw = data as any;
+    product = {
+        id: raw.id,
+        category_id: "",
+        name: raw.name,
+        slug: raw.slug,
+        description: raw.description,
+        price: raw.price,
+        image_url: raw.image_url,
+        stock: raw.stock,
+        min_stock: raw.min_stock,
+        active: raw.active,
+        categorySlug: raw.categories?.slug ?? "",
+        ingredients: (raw.product_ingredients ?? []).map((pi: any) => ({
+        ingredient_id: pi.ingredient_id,
+        ingredient_name: pi.ingredients?.name ?? "",
+        is_included: pi.is_included,
+        is_removable: pi.is_removable,
+        is_addable_extra: pi.is_addable_extra,
+        extra_price: pi.price_override ?? pi.ingredients?.extra_price ?? 0,
+        })),
+    };
+}
+
+const includedIngredients = product?.ingredients.filter((i) => i.is_included) ?? [];
+const extraIngredients = product?.ingredients.filter((i) => i.is_addable_extra) ?? [];
+
+const formattedPrice = product
+    ? new Intl.NumberFormat("es-AR", {
+        style: "currency",
+        currency: "ARS",
+        maximumFractionDigits: 0,
+        }).format(product.price)
+    : "";
+---
+
+<PublicLayout
+    title={product ? `${product.name} — Bechis` : "Bechis"}
+    showBack
+    backHref={product ? `/categoria/${product.categorySlug}` : "/"}
+    >
+    {
+        !product ? (
+        <EmptyState message="No encontramos este producto." />
+        ) : (
+        <div id="product-root" class="mx-auto w-full max-w-2xl" data-category-slug={product.categorySlug}>
+            <script id="product-root-data" type="application/json" set:html={JSON.stringify(product)} />
+
+            {product.image_url ? (
+            <img src={product.image_url} alt={product.name} class="h-[230px] w-full object-cover" />
+            ) : (
+            <div
+                class="flex h-[230px] items-center justify-center text-[88px]"
+                style={`background:${getPlaceholderColor(product.categorySlug)}`}
+            >
+                {getPlaceholderEmoji(product.categorySlug)}
+            </div>
+            )}
+
+            <div class="p-4.5 px-4 py-4">
+            {product.description && <p class="mb-2.5 text-sm leading-relaxed text-text-muted">{product.description}</p>}
+            <p class="mb-4 font-display text-2xl text-text">{formattedPrice}</p>
+
+            {includedIngredients.length > 0 && (
+                <div class="mb-3.5 overflow-hidden rounded-sm border border-surface-line bg-surface">
+                <div class="flex items-center justify-between border-b border-surface-line px-3.5 py-3">
+                    <div>
+                    <h4 class="text-sm font-semibold text-text">Ingredientes incluidos</h4>
+                    <span class="mt-0.5 block text-[11.5px] text-text-muted">
+                        Desmarcá lo que no quieras. No cambia el precio.
+                    </span>
+                    </div>
+                    <span class="rounded-full bg-[#EAF7EF] px-2 py-1 text-[10.5px] font-bold text-success">Incluido</span>
+                </div>
+
+                {includedIngredients.map((ing) => (
+                    <div class="flex items-center justify-between border-b border-surface-line px-3.5 py-2.5 text-sm last:border-b-0">
+                    <span data-ingredient-name={ing.ingredient_id} class="font-medium text-text">
+                        {ing.ingredient_name}
+                    </span>
+                    {ing.is_removable ? (
+                        <button
+                        type="button"
+                        data-role="toggle-remove"
+                        data-ingredient-id={ing.ingredient_id}
+                        class="relative h-6 w-[42px] flex-none rounded-full bg-success transition-colors"
+                        >
+                        <span
+                            data-role="knob"
+                            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+                            style="left:20px"
+                        />
+                        </button>
+                    ) : (
+                        <span class="rounded-full bg-[#EAF7EF] px-2 py-1 text-[10.5px] font-bold text-success">Fijo</span>
+                    )}
+                    </div>
+                ))}
+                </div>
+            )}
+
+            {extraIngredients.length > 0 && (
+                <div class="mb-3.5 overflow-hidden rounded-sm border border-surface-line bg-surface">
+                <div class="flex items-center justify-between border-b border-surface-line px-3.5 py-3">
+                    <div>
+                    <h4 class="text-sm font-semibold text-text">Agregar extras</h4>
+                    <span class="mt-0.5 block text-[11.5px] text-text-muted">Cada extra suma a tu precio final.</span>
+                    </div>
+                    <span class="rounded-full bg-[#FFF3D6] px-2 py-1 text-[10.5px] font-bold text-warning">Adicional</span>
+                </div>
+
+                {extraIngredients.map((ing) => (
+                    <button
+                    type="button"
+                    data-role="toggle-extra"
+                    data-ingredient-id={ing.ingredient_id}
+                    class="flex w-full items-center justify-between border-b border-surface-line px-3.5 py-2.5 text-left text-sm last:border-b-0"
+                    >
+                    <span class="flex items-center gap-2.5">
+                        <span
+                        data-role="checkbox"
+                        class="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-md border-[1.5px] border-[#C9C4B7] text-[13px] text-white"
+                        />
+                        <span class="font-medium text-text">{ing.ingredient_name}</span>
+                    </span>
+                    <span class="text-[12.5px] text-text-muted">
+                        +
+                        {new Intl.NumberFormat("es-AR", {
+                        style: "currency",
+                        currency: "ARS",
+                        maximumFractionDigits: 0,
+                        }).format(ing.extra_price)}
+                    </span>
+                    </button>
+                ))}
+                </div>
+            )}
+
+            <h4 class="mb-2 text-sm font-semibold text-text">Cantidad</h4>
+            <div class="mb-4 flex items-center gap-3.5">
+                <button
+                type="button"
+                data-role="qty-minus"
+                class="flex h-9 w-9 items-center justify-center rounded-sm border-[1.5px] border-ink font-display text-base"
+                >
+                –
+                </button>
+                <span data-role="qty-value" class="min-w-[20px] text-center font-display text-[17px]">
+                1
+                </span>
+                <button
+                type="button"
+                data-role="qty-plus"
+                class="flex h-9 w-9 items-center justify-center rounded-sm border-[1.5px] border-ink font-display text-base"
+                >
+                +
+                </button>
+            </div>
+            </div>
+
+            <div class="sticky bottom-0 z-30 border-t border-surface-line bg-surface p-3 px-4">
+            <button
+                type="button"
+                data-role="add-to-cart"
+                class="flex w-full items-center justify-between rounded-md bg-bechis-yellow px-4 py-3.5 font-bold text-ink"
+            >
+                <span>Agregar al pedido</span>
+                <span data-role="add-price">{formattedPrice}</span>
+            </button>
+            </div>
+
+            <script>
+            import { attachProductCustomizer } from "@/components/public/ProductCustomizer";
+            attachProductCustomizer("product-root");
+            </script>
+        </div>
+        )
+    }
+</PublicLayout>

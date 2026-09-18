@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap");
+
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        @apply bg-surface-bg text-text font-sans antialiased;
+        min-height: 100vh;
+    }
+
+    /* Foco visible para accesibilidad (teclado) */
+    :focus-visible {
+        outline: 2px solid theme("colors.bechis.yellow");
+        outline-offset: 2px;
+    }
+
+    /* Respeta preferencia de movimiento reducido */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@layer components {
+    /* Clase de apoyo para textos con la tipografía de marca (nombres de
+        producto, precios, headings) — evita repetir font-display en todos
+        lados y deja un único lugar para ajustarla. */
+    .text-brand {
+        @apply font-display tracking-tight;
+    }
+}

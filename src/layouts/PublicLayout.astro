@@ -1,0 +1,90 @@
+---
+import "../styles/globals.css";
+import SiteFooter from "@/components/public/SiteFooter.astro";
+
+export interface Props {
+    title?: string;
+    showBack?: boolean;
+    backHref?: string;
+}
+
+const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="Pedí online en Bechis: hamburguesas, papas, combos y más." />
+        <title>{title}</title>
+    </head>
+    <body>
+        <div class="min-h-screen w-full bg-surface-bg">
+        <header class="sticky top-0 z-40 flex items-center justify-between gap-3 bg-ink px-4 py-3 text-white">
+            <div class="flex items-center gap-3">
+            {
+                showBack ? (
+                <a
+                    href={backHref}
+                    aria-label="Volver"
+                    class="flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors hover:bg-white/10"
+                >
+                    ←
+                </a>
+                ) : (
+                <div class="flex h-8 w-8 items-center justify-center rounded-md bg-bechis-yellow text-sm font-display text-ink">
+                    B
+                </div>
+                )
+            }
+            <span class="font-display text-lg tracking-tight">BECHIS</span>
+            </div>
+
+            <a
+            href="/carrito"
+            aria-label="Ver carrito"
+            class="relative flex h-9 w-9 items-center justify-center rounded-lg border border-ink-muted bg-ink-soft"
+            >
+            🛒
+            <span
+                id="cart-badge"
+                class="absolute -right-1.5 -top-1.5 hidden min-w-[17px] rounded-full bg-bechis-yellow px-1 text-center text-[10px] font-bold leading-[17px] text-ink"
+            ></span>
+            </a>
+        </header>
+
+        <main>
+            <slot />
+        </main>
+
+        <SiteFooter />
+        </div>
+
+        <div
+        id="toast"
+        class="pointer-events-none fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 translate-y-4 whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white opacity-0 shadow-lg transition-all duration-200"
+        >
+        </div>
+
+        <script>
+        // Único JS que corre en TODAS las páginas públicas: mantiene el
+        // badge del carrito sincronizado. Es liviano a propósito (nanostores).
+        import { cartCount } from "@/stores/cart";
+
+        const badge = document.getElementById("cart-badge");
+
+        function updateBadge(count: number) {
+            if (!badge) return;
+            if (count > 0) {
+            badge.textContent = String(count);
+            badge.classList.remove("hidden");
+            } else {
+            badge.classList.add("hidden");
+            }
+        }
+
+        cartCount.subscribe(updateBadge);
+        </script>
+    </body>
+</html>

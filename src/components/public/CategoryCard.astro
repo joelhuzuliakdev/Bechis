@@ -1,0 +1,28 @@
+---
+// Versión pensada para vivir sobre el hero oscuro del home (fondo
+// negro). El color de acento viene de la base de datos como hex y se
+// aplica con `style`, nunca como clase de Tailwind (ver nota en
+// migrations/0002): así funciona con cualquier categoría que se cargue
+// después desde el admin, sin depender de qué haya compilado Tailwind.
+export interface Props {
+    name: string;
+    slug: string;
+    emoji: string;
+    accentColor: string; // hex, ej "#FFC629"
+}
+
+const { name, slug, emoji, accentColor } = Astro.props;
+---
+
+<a
+    href={`/categoria/${slug}`}
+    class="group flex flex-col items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-6 text-center backdrop-blur-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-bechis-yellow/70 hover:bg-white/[0.07]"
+    >
+    <span
+        class="flex h-14 w-14 items-center justify-center rounded-full text-[26px] transition-transform duration-150 group-hover:scale-105"
+        style={`background:${accentColor}33`}
+    >
+        {emoji}
+    </span>
+    <span class="text-sm font-semibold leading-tight text-white">{name}</span>
+</a>
