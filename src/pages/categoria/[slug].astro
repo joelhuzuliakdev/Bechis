@@ -7,16 +7,20 @@ import type { Category, Product } from "@/types";
 
 const { slug } = Astro.params;
 
-const { data: category } = await supabasePublic
+const { data: category, error: categoryError } = await supabasePublic
     .from("categories")
-    .select("id, name, slug, sort_order, active, icon_emoji, theme_class")
+    .select("id, name, slug, sort_order, active, icon_emoji, accent_color")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle<Category>();
 
+if (categoryError) console.error("Error cargando categoría:", categoryError.message);
+
 let products: Product[] = [];
 
 if (category) {
+    console.log("[DEBUG] category.id usado para filtrar:", JSON.stringify(category.id));
+
     const { data, error } = await supabasePublic
         .from("products")
         .select("id, category_id, name, slug, description, price, image_url, stock, min_stock, active")
@@ -24,6 +28,9 @@ if (category) {
         .eq("active", true)
         .order("name", { ascending: true })
         .returns<Product[]>();
+
+    console.log("[DEBUG] resultado productos -> data:", JSON.stringify(data));
+    console.log("[DEBUG] resultado productos -> error:", JSON.stringify(error));
 
     if (error) console.error("Error cargando productos:", error.message);
     products = data ?? [];
