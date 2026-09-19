@@ -1,0 +1,16 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+
+const profile = Astro.locals.profile!;
+---
+
+<AdminLayout title="Panel Empleado" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-900">Pedidos</h2>
+        <p class="text-sm text-gray-500">El tablero de Pedidos / En proceso / Finalizados va en el próximo paso.</p>
+    </div>
+
+    <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
+        Próximamente: pedidos en vivo desde el catálogo público, organizados en 3 columnas.
+    </div>
+</AdminLayout>

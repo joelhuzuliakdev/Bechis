@@ -1,0 +1,29 @@
+---
+export interface Props {
+    title: string;
+    userName: string;
+}
+
+const { title, userName } = Astro.props;
+---
+
+<header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+    <div class="flex items-center gap-3">
+        <button
+        type="button"
+        data-role="open-sidebar"
+        class="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 md:hidden"
+        aria-label="Abrir menú"
+        >
+        ☰
+        </button>
+        <h1 class="text-base font-semibold text-gray-900">{title}</h1>
+    </div>
+
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+        <span class="hidden sm:inline">{userName}</span>
+        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-bechis-yellow/20 text-xs font-bold text-bechis-yellow-dark">
+        {userName.charAt(0).toUpperCase()}
+        </span>
+    </div>
+</header>

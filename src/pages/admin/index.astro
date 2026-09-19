@@ -1,0 +1,21 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+
+// El middleware garantiza que si llegamos hasta acá, locals.profile
+// existe y es admin (esta ruta no está en EMPLOYEE_ALLOWED_PREFIXES).
+const profile = Astro.locals.profile!;
+---
+
+<AdminLayout title="Inicio" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-900">Hola, {profile.fullName || "administrador"} 👋</h2>
+        <p class="text-sm text-gray-500">
+        El login y la protección de rutas ya están funcionando. Las tarjetas de ventas, pedidos pendientes y stock
+        bajo van en el próximo paso.
+        </p>
+    </div>
+
+    <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
+        Próximamente: resumen del día, últimas ventas, pedidos pendientes y alertas de stock.
+    </div>
+</AdminLayout>

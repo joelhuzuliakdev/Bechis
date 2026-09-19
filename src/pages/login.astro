@@ -1,0 +1,124 @@
+---
+import "../styles/globals.css";
+
+const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Ingresar — Bechis</title>
+    </head>
+    <body class="flex min-h-screen items-center justify-center bg-ink px-4">
+        <div class="w-full max-w-sm rounded-lg border border-white/10 bg-ink-soft p-6 shadow-subtle">
+        <div class="mb-6 flex flex-col items-center">
+            <span class="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-bechis-yellow font-display text-base text-ink">
+            B
+            </span>
+            <h1 class="font-display text-lg text-white">Panel Bechis</h1>
+            <p class="text-xs text-white/50">Ingresá con el email y contraseña que te dio el administrador.</p>
+        </div>
+
+        <div class="mb-3">
+            <label class="mb-1 block text-xs font-medium text-white/70">Email</label>
+            <input
+            type="email"
+            id="email"
+            class="w-full rounded-sm border border-white/10 bg-ink px-3 py-2.5 text-sm text-white outline-none focus:border-bechis-yellow"
+            placeholder="tu@email.com"
+            autocomplete="username"
+            />
+        </div>
+        <div class="mb-4">
+            <label class="mb-1 block text-xs font-medium text-white/70">Contraseña</label>
+            <input
+            type="password"
+            id="password"
+            class="w-full rounded-sm border border-white/10 bg-ink px-3 py-2.5 text-sm text-white outline-none focus:border-bechis-yellow"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            />
+        </div>
+
+        <p id="login-error" class="mb-3 hidden text-sm text-danger"></p>
+
+        <button
+            id="login-submit"
+            type="button"
+            class="w-full rounded-md bg-bechis-yellow px-4 py-3 text-sm font-bold text-ink"
+        >
+            Ingresar
+        </button>
+        </div>
+
+        <script define:vars={{ nextParam }}>
+        window.__BECHIS_LOGIN_NEXT__ = nextParam;
+        </script>
+        <script>
+        import { supabaseBrowser } from "@/lib/supabase/client";
+
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const errorEl = document.getElementById("login-error");
+        const submitBtn = document.getElementById("login-submit");
+
+        async function handleLogin() {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+            showError("Completá email y contraseña.");
+            return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Ingresando...";
+
+            const { data, error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
+
+            if (error || !data.user) {
+            showError("Email o contraseña incorrectos.");
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Ingresar";
+            return;
+            }
+
+            // Preguntamos el rol para saber a dónde mandarlo, en vez de
+            // asumir /admin siempre — el middleware igual lo protegería,
+            // pero esto evita un redirect de más para los empleados.
+            const { data: profile } = await supabaseBrowser
+            .from("profiles")
+            .select("role, active")
+            .eq("id", data.user.id)
+            .maybeSingle();
+
+            if (!profile || !profile.active) {
+            showError("Tu cuenta no está activa. Consultá con el administrador.");
+            await supabaseBrowser.auth.signOut();
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Ingresar";
+            return;
+            }
+
+            const next = window.__BECHIS_LOGIN_NEXT__;
+            if (profile.role === "admin") {
+            window.location.href = next && next !== "/admin" ? next : "/admin";
+            } else {
+            window.location.href = "/empleado/pedidos";
+            }
+        }
+
+        function showError(message) {
+            errorEl.textContent = message;
+            errorEl.classList.remove("hidden");
+        }
+
+        submitBtn.addEventListener("click", handleLogin);
+        passwordInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") handleLogin();
+        });
+        </script>
+    </body>
+</html>

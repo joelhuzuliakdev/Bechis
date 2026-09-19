@@ -1,0 +1,47 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+---
+
+<PublicLayout title="Tu carrito — Bechis" showBack backHref="/">
+    <div class="mx-auto w-full max-w-3xl px-4 pb-2 pt-4 md:px-8">
+        <h1 class="font-display text-xl text-text md:text-2xl">Tu pedido</h1>
+    </div>
+
+    <div id="cart-empty" class="hidden">
+        <div class="flex flex-col items-center gap-2 px-5 py-16 text-center text-sm text-text-muted">
+        <span class="text-2xl">🛒</span>
+        <p>Tu carrito está vacío.</p>
+        <a href="/" class="mt-2 rounded-full bg-bechis-yellow px-5 py-2 text-sm font-bold text-ink">
+            Ver el catálogo
+        </a>
+        </div>
+    </div>
+
+    <div id="cart-list" class="mx-auto flex w-full max-w-3xl flex-col gap-2.5 px-4 pt-2 md:px-8"></div>
+
+    <div id="cart-summary" class="mx-auto hidden w-full max-w-3xl px-4 pb-16 pt-5 md:px-8">
+        <div class="flex justify-between py-1.5 text-sm text-text-muted">
+        <span>Subtotal</span>
+        <span data-role="subtotal">$0</span>
+        </div>
+        <div class="flex justify-between py-1.5 text-sm text-text-muted">
+        <span>Envío</span>
+        <span>Se calcula en el siguiente paso</span>
+        </div>
+        <div class="mt-1 flex justify-between border-t border-surface-line py-3 text-base font-bold text-text">
+        <span>Total</span>
+        <span data-role="total">$0</span>
+        </div>
+        <a
+        href="/checkout"
+        class="mt-4 flex w-full items-center justify-center rounded-md bg-bechis-yellow px-4 py-3.5 font-bold text-ink"
+        >
+        Continuar con el pedido
+        </a>
+    </div>
+
+    <script>
+        import { attachCartView } from "@/components/public/CartView";
+        attachCartView("cart-list", "cart-summary", "cart-empty");
+    </script>
+</PublicLayout>

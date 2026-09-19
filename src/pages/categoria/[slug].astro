@@ -19,8 +19,6 @@ if (categoryError) console.error("Error cargando categoría:", categoryError.mes
 let products: Product[] = [];
 
 if (category) {
-    console.log("[DEBUG] category.id usado para filtrar:", JSON.stringify(category.id));
-
     const { data, error } = await supabasePublic
         .from("products")
         .select("id, category_id, name, slug, description, price, image_url, stock, min_stock, active")
@@ -28,9 +26,6 @@ if (category) {
         .eq("active", true)
         .order("name", { ascending: true })
         .returns<Product[]>();
-
-    console.log("[DEBUG] resultado productos -> data:", JSON.stringify(data));
-    console.log("[DEBUG] resultado productos -> error:", JSON.stringify(error));
 
     if (error) console.error("Error cargando productos:", error.message);
     products = data ?? [];

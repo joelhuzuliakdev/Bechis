@@ -1,0 +1,112 @@
+---
+// Nota de diseño: el panel interno usa colores explícitos (no los
+// tokens `surface`/`text` del catálogo público), porque ese catálogo
+// ya está comprometido con una identidad 100% negra por decisión del
+// cliente, mientras que un dashboard de uso diario funciona mejor con
+// fondo claro para leer tablas y gráficos — son dos productos con
+// necesidades distintas, aunque compartan negro+amarillo como marca.
+import type { UserRole } from "@/types";
+
+export interface Props {
+    role: UserRole;
+    currentPath: string;
+}
+
+const { role, currentPath } = Astro.props;
+
+interface NavItem {
+    label: string;
+    href: string;
+    icon: string;
+    roles: UserRole[];
+}
+
+const NAV_ITEMS: NavItem[] = [
+    { label: "Inicio", href: "/admin", icon: "🏠", roles: ["admin"] },
+    { label: "Productos", href: "/admin/productos", icon: "🍔", roles: ["admin", "empleado"] },
+    { label: "Stock", href: "/admin/stock", icon: "📦", roles: ["admin", "empleado"] },
+    { label: "Ventas", href: "/admin/ventas", icon: "💳", roles: ["admin"] },
+    { label: "Caja", href: "/admin/caja", icon: "🧮", roles: ["admin"] },
+    { label: "Reportes", href: "/admin/reportes", icon: "📊", roles: ["admin"] },
+    { label: "Panel Empleado", href: "/empleado/pedidos", icon: "🧾", roles: ["admin", "empleado"] },
+    { label: "Equipo", href: "/admin/equipo", icon: "👥", roles: ["admin"] },
+    { label: "Facturas", href: "/admin/facturas", icon: "🧾", roles: ["admin"] },
+    { label: "Proveedores", href: "/admin/proveedores", icon: "🚚", roles: ["admin"] },
+    { label: "Gastos", href: "/admin/gastos", icon: "💸", roles: ["admin"] },
+    { label: "Promos", href: "/admin/promos", icon: "🏷️", roles: ["admin", "empleado"] },
+];
+
+const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+---
+
+<>
+    <!-- Overlay para cerrar el drawer en mobile -->
+    <div
+        id="sidebar-overlay"
+        class="fixed inset-0 z-40 hidden bg-black/50 md:hidden"
+        data-role="sidebar-overlay"
+    >
+    </div>
+
+    <aside
+        id="admin-sidebar"
+        class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full transform bg-[#141414] text-white transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0"
+    >
+        <div class="flex h-14 items-center gap-2 border-b border-white/10 px-4">
+        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-bechis-yellow font-display text-sm text-ink">
+            B
+        </span>
+        <span class="font-display text-sm tracking-tight">BECHIS</span>
+        </div>
+
+        <nav class="flex flex-col gap-0.5 p-3">
+        {
+            visibleItems.map((item) => {
+            const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
+            return (
+                <a
+                href={item.href}
+                class:list={[
+                    "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition-colors",
+                    isActive ? "bg-bechis-yellow text-ink font-semibold" : "text-white/70 hover:bg-white/10 hover:text-white",
+                ]}
+                >
+                <span class="text-base">{item.icon}</span>
+                {item.label}
+                </a>
+            );
+            })
+        }
+        </nav>
+
+        <form action="/api/auth/logout" method="POST" class="absolute bottom-3 left-3 right-3">
+        <button
+            type="submit"
+            class="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        >
+            <span class="text-base">🚪</span>
+            Salir
+        </button>
+        </form>
+    </aside>
+
+    <script>
+        const sidebar = document.getElementById("admin-sidebar");
+        const overlay = document.querySelector<HTMLElement>("[data-role='sidebar-overlay']");
+
+        function openSidebar() {
+        sidebar?.classList.remove("-translate-x-full");
+        overlay?.classList.remove("hidden");
+        }
+        function closeSidebar() {
+        sidebar?.classList.add("-translate-x-full");
+        overlay?.classList.add("hidden");
+        }
+
+        document.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-role='open-sidebar']")) openSidebar();
+        if (target.closest("[data-role='sidebar-overlay']")) closeSidebar();
+        });
+    </script>
+</>

@@ -1,0 +1,132 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+import { supabasePublic } from "@/lib/supabase/public";
+
+const { data: zones, error } = await supabasePublic
+    .from("delivery_zones")
+    .select("id, name, price")
+    .eq("active", true)
+    .order("price", { ascending: true });
+
+if (error) console.error("Error cargando zonas de envío:", error.message);
+
+const deliveryZones = zones ?? [];
+---
+
+<PublicLayout title="Finalizar pedido — Bechis" showBack backHref="/carrito">
+    <div id="checkout-root" class="mx-auto w-full max-w-2xl px-4 pb-16 pt-4 md:px-8">
+        <h1 class="mb-5 font-display text-xl text-text md:text-2xl">Finalizar pedido</h1>
+
+        <!-- Resumen del carrito (se llena por JS, ver CheckoutForm.ts) -->
+        <div class="mb-5 rounded-sm border border-surface-line bg-surface p-4 shadow-subtle">
+        <h2 class="mb-2 text-sm font-semibold text-text">Tu pedido</h2>
+        <div data-role="order-summary"></div>
+        </div>
+
+        <!-- Datos del cliente -->
+        <div class="mb-5 rounded-sm border border-surface-line bg-surface p-4 shadow-subtle">
+        <h2 class="mb-3 text-sm font-semibold text-text">Tus datos</h2>
+        <div class="mb-3">
+            <label class="mb-1 block text-xs font-medium text-text-muted">Nombre y apellido</label>
+            <input
+            type="text"
+            name="customerName"
+            class="w-full rounded-sm border border-surface-line bg-surface-bg px-3 py-2.5 text-sm text-text outline-none focus:border-bechis-yellow"
+            placeholder="Ej: Juan Pérez"
+            />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-text-muted">Teléfono</label>
+            <input
+            type="tel"
+            name="customerPhone"
+            class="w-full rounded-sm border border-surface-line bg-surface-bg px-3 py-2.5 text-sm text-text outline-none focus:border-bechis-yellow"
+            placeholder="Ej: 351 555 5555"
+            />
+        </div>
+        </div>
+
+        <!-- Entrega -->
+        <div class="mb-5 rounded-sm border border-surface-line bg-surface p-4 shadow-subtle">
+        <h2 class="mb-3 text-sm font-semibold text-text">Entrega</h2>
+
+        <label class="mb-2 flex items-center gap-2.5 rounded-sm border border-surface-line px-3 py-2.5 text-sm text-text">
+            <input type="radio" name="deliveryType" value="retiro" checked class="accent-bechis-yellow" />
+            🏪 Retiro en el local — <span class="font-semibold">$0</span>
+        </label>
+        <label class="flex items-center gap-2.5 rounded-sm border border-surface-line px-3 py-2.5 text-sm text-text">
+            <input type="radio" name="deliveryType" value="envio" class="accent-bechis-yellow" />
+            🚚 Envío a domicilio
+        </label>
+
+        <div data-role="address-wrapper" class="mt-3 hidden">
+            <label class="mb-1 block text-xs font-medium text-text-muted">Dirección</label>
+            <input
+            type="text"
+            name="address"
+            class="mb-3 w-full rounded-sm border border-surface-line bg-surface-bg px-3 py-2.5 text-sm text-text outline-none focus:border-bechis-yellow"
+            placeholder="Calle, número, referencia"
+            />
+            <label class="mb-1 block text-xs font-medium text-text-muted">Zona</label>
+            <select
+            name="deliveryZoneId"
+            class="w-full rounded-sm border border-surface-line bg-surface-bg px-3 py-2.5 text-sm text-text outline-none focus:border-bechis-yellow"
+            >
+            <option value="">Elegí tu zona...</option>
+            {deliveryZones.map((z) => (
+                <option value={z.id}>
+                {z.name} — {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(z.price)}
+                </option>
+            ))}
+            </select>
+        </div>
+        </div>
+
+        <!-- Observaciones -->
+        <div class="mb-5 rounded-sm border border-surface-line bg-surface p-4 shadow-subtle">
+        <h2 class="mb-2 text-sm font-semibold text-text">Observaciones (opcional)</h2>
+        <textarea
+            name="notes"
+            rows="2"
+            class="w-full resize-none rounded-sm border border-surface-line bg-surface-bg px-3 py-2.5 text-sm text-text outline-none focus:border-bechis-yellow"
+            placeholder="Ej: sin sal, tocar timbre B"
+        ></textarea>
+        </div>
+
+        <!-- Totales -->
+        <div class="mb-5 rounded-sm border border-surface-line bg-surface p-4 shadow-subtle">
+        <div class="flex justify-between py-1 text-sm text-text-muted">
+            <span>Subtotal</span>
+            <span data-role="subtotal">$0</span>
+        </div>
+        <div class="flex justify-between py-1 text-sm text-text-muted">
+            <span>Envío</span>
+            <span data-role="delivery-line">Retiro en el local — $0</span>
+        </div>
+        <div class="mt-1 flex justify-between border-t border-surface-line py-2.5 text-base font-bold text-text">
+            <span>Total</span>
+            <span data-role="total">$0</span>
+        </div>
+        </div>
+
+        <p data-role="form-error" class="mb-3 text-sm text-danger"></p>
+
+        <button
+        type="button"
+        data-role="submit"
+        class="flex w-full items-center justify-center rounded-md bg-bechis-yellow px-4 py-3.5 font-bold text-ink"
+        >
+        Confirmar pedido
+        </button>
+    </div>
+
+    <script define:vars={{ zones: deliveryZones }}>
+        // define:vars serializa `zones` (datos del servidor) para pasarlo
+        // al script de cliente sin tener que volver a pedirlo por fetch.
+        window.__BECHIS_DELIVERY_ZONES__ = zones;
+    </script>
+    <script>
+        import { attachCheckoutForm } from "@/components/public/CheckoutForm";
+        attachCheckoutForm("checkout-root", window.__BECHIS_DELIVERY_ZONES__ ?? []);
+    </script>
+</PublicLayout>
