@@ -5,9 +5,9 @@ import Header from "@/components/admin/Header.astro";
 import type { UserRole } from "@/types";
 
 export interface Props {
-    title: string;
-    role: UserRole;
-    userName: string;
+  title: string;
+  role: UserRole;
+  userName: string;
 }
 
 const { title, role, userName } = Astro.props;
@@ -16,21 +16,27 @@ const currentPath = Astro.url.pathname;
 
 <!doctype html>
 <html lang="es">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title} — Panel Bechis</title>
-    </head>
-    <body class="bg-gray-50 text-gray-900">
-        <div class="flex min-h-screen">
-        <Sidebar role={role} currentPath={currentPath} />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — Panel Bechis</title>
+  </head>
+  <body class="bg-gray-50 text-gray-900">
+    <div class="flex min-h-screen">
+      <Sidebar role={role} currentPath={currentPath} />
 
-        <div class="flex min-h-screen flex-1 flex-col md:ml-0">
-            <Header title={title} userName={userName} />
-            <main class="flex-1 p-4 md:p-6">
-            <slot />
-            </main>
-        </div>
-        </div>
-    </body>
+      <div class="flex min-h-screen flex-1 flex-col md:ml-0">
+        <Header title={title} userName={userName} />
+        <main class="flex-1 p-4 md:p-6">
+          <slot />
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="toast"
+      class="pointer-events-none fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 translate-y-4 whitespace-nowrap rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white opacity-0 shadow-lg transition-all duration-200"
+    >
+    </div>
+  </body>
 </html>

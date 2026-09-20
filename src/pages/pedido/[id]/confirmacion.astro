@@ -3,88 +3,65 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
 ---
 
 <PublicLayout title="Pedido confirmado — Bechis">
-    <div id="confirmation-root" class="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-16 text-center md:px-8">
-        <span class="mb-4 text-4xl">✅</span>
-        <h1 class="mb-2 font-display text-2xl text-text">¡Pedido recibido!</h1>
-        <p data-role="order-number" class="mb-6 text-sm text-text-muted"></p>
+  <div id="confirmation-root" class="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-16 text-center md:px-8">
+    <span class="mb-4 text-4xl">✅</span>
+    <h1 class="mb-2 font-display text-2xl text-text">¡Pedido recibido!</h1>
+    <p data-role="order-number" class="mb-6 text-sm text-text-muted"></p>
+    <div data-role="details" class="mb-8 w-full rounded-sm border border-surface-line bg-surface p-4 text-left shadow-subtle"></div>
+    <a href="/" class="rounded-full bg-bechis-yellow px-6 py-3 text-sm font-bold text-ink">Volver al catálogo</a>
+  </div>
 
-        <div data-role="details" class="mb-8 w-full rounded-sm border border-surface-line bg-surface p-4 text-left shadow-subtle"></div>
+  <script>
+    interface StoredOrder {
+      orderId: string;
+      orderNumber: number;
+      subtotal: number;
+      deliveryCost: number;
+      total: number;
+      customerName: string;
+      deliveryType: "retiro" | "envio";
+      items: { productName: string; quantity: number; unitPrice: number }[];
+    }
 
-        <a href="/" class="rounded-full bg-bechis-yellow px-6 py-3 text-sm font-bold text-ink">Volver al catálogo</a>
-    </div>
+    function money(n: number): string {
+      return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+    }
 
-    <script>
-        interface StoredOrder {
-        orderId: string;
-        orderNumber: number;
-        subtotal: number;
-        deliveryCost: number;
-        total: number;
-        customerName: string;
-        deliveryType: "retiro" | "envio";
-        items: { productName: string; quantity: number; unitPrice: number }[];
-        }
+    const orderNumberEl = document.querySelector<HTMLElement>("[data-role='order-number']");
+    const detailsEl = document.querySelector<HTMLElement>("[data-role='details']");
+    const orderIdFromUrl = window.location.pathname.split("/")[2] ?? "";
 
-        function money(n: number): string {
-        return new Intl.NumberFormat("es-AR", {
-            style: "currency",
-            currency: "ARS",
-            maximumFractionDigits: 0,
-        }).format(n);
-        }
+    let stored: StoredOrder | null = null;
+    try {
+      const raw = sessionStorage.getItem("bechis_last_order");
+      stored = raw ? JSON.parse(raw) : null;
+    } catch {
+      stored = null;
+    }
 
-        const orderNumberEl = document.querySelector<HTMLElement>("[data-role='order-number']");
-        const detailsEl = document.querySelector<HTMLElement>("[data-role='details']");
-
-        // El id de la URL es solo para casos donde no hay nada en
-        // sessionStorage (por ejemplo, alguien recarga esta página directo).
-        const pathParts = window.location.pathname.split("/");
-        const orderIdFromUrl = pathParts[2] ?? "";
-
-        const raw = sessionStorage.getItem("bechis_last_order");
-        let stored: StoredOrder | null = null;
-        try {
-        stored = raw ? JSON.parse(raw) : null;
-        } catch {
-        stored = null;
-        }
-
-        if (stored && stored.orderId === orderIdFromUrl) {
-        if (orderNumberEl) orderNumberEl.textContent = `Pedido #${stored.orderNumber} — Gracias, ${stored.customerName}!`;
-
-        const itemsHtml = stored.items
-            .map(
-            (i) => `
-            <div class="flex justify-between py-1 text-sm">
-            <span class="text-text-muted">${i.quantity}× ${i.productName}</span>
-            <span class="text-text">${money(i.unitPrice * i.quantity)}</span>
-            </div>
-        `
-            )
-            .join("");
-
-        if (detailsEl) {
-            detailsEl.innerHTML = `
-            <h2 class="mb-2 text-sm font-semibold text-text">Detalle</h2>
-            ${itemsHtml}
-            <div class="mt-2 flex justify-between border-t border-surface-line pt-2 text-sm text-text-muted">
-                <span>Subtotal</span><span>${money(stored.subtotal)}</span>
-            </div>
-            <div class="flex justify-between text-sm text-text-muted">
-                <span>Envío</span><span>${stored.deliveryType === "envio" ? money(stored.deliveryCost) : "Retiro en el local"}</span>
-            </div>
-            <div class="mt-1 flex justify-between border-t border-surface-line pt-2 text-base font-bold text-text">
-                <span>Total</span><span>${money(stored.total)}</span>
-            </div>
-            `;
-        }
-        } else {
-        // Fallback: no hay detalle disponible (recarga, link compartido,
-        // etc.), pero igual confirmamos que el pedido existe por su número de URL.
-        if (orderNumberEl) orderNumberEl.textContent = "Guardá este número para consultar tu pedido si hace falta.";
-        if (detailsEl) {
-            detailsEl.innerHTML = `<p class="text-sm text-text-muted">ID de pedido: ${orderIdFromUrl}</p>`;
-        }
-        }
-    </script>
+    if (stored && stored.orderId === orderIdFromUrl) {
+      if (orderNumberEl) orderNumberEl.textContent = `Pedido #${stored.orderNumber} — Gracias, ${stored.customerName}!`;
+      const itemsHtml = stored.items
+        .map(
+          (i) => `
+        <div class="flex justify-between py-1 text-sm">
+          <span class="text-text-muted">${i.quantity}× ${i.productName}</span>
+          <span class="text-text">${money(i.unitPrice * i.quantity)}</span>
+        </div>`
+        )
+        .join("");
+      if (detailsEl) {
+        detailsEl.innerHTML = `
+          <h2 class="mb-2 text-sm font-semibold text-text">Detalle</h2>
+          ${itemsHtml}
+          <div class="mt-2 flex justify-between border-t border-surface-line pt-2 text-sm text-text-muted"><span>Subtotal</span><span>${money(stored.subtotal)}</span></div>
+          <div class="flex justify-between text-sm text-text-muted"><span>Envío</span><span>${stored.deliveryType === "envio" ? money(stored.deliveryCost) : "Retiro en el local"}</span></div>
+          <div class="mt-1 flex justify-between border-t border-surface-line pt-2 text-base font-bold text-text"><span>Total</span><span>${money(stored.total)}</span></div>
+        `;
+      }
+    } else {
+      if (orderNumberEl) orderNumberEl.textContent = "Guardá este número para consultar tu pedido si hace falta.";
+      if (detailsEl) detailsEl.innerHTML = `<p class="text-sm text-text-muted">ID de pedido: ${orderIdFromUrl}</p>`;
+    }
+  </script>
 </PublicLayout>

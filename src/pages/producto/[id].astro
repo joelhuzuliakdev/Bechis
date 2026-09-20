@@ -201,11 +201,12 @@ const formattedPrice = product
             </button>
             </div>
 
-            <script>
-            import { attachProductCustomizer } from "@/components/public/ProductCustomizer";
-            attachProductCustomizer("product-root");
-            </script>
         </div>
         )
     }
 </PublicLayout>
+<script>
+  import { attachProductCustomizer } from "@/components/public/ProductCustomizer";
+
+  attachProductCustomizer("product-root");
+</script>
