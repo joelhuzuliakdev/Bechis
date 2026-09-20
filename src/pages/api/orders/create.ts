@@ -8,11 +8,23 @@
 
 import type { APIRoute } from "astro";
 import { supabasePublic } from "@/lib/supabase/public";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { fetchProductWithIngredients } from "@/lib/pricing/fetchProductWithIngredients";
 import { calculateProductPrice, calculateOrderTotal } from "@/lib/pricing/calculatePrice";
 import { createOrderSchema } from "@/lib/validators/orderSchema";
 
 export const POST: APIRoute = async ({ request }) => {
+  // Usamos el cliente admin (service role) SOLO para las escrituras de
+  // este endpoint. Motivo puntual: un INSERT con RETURNING (o el
+  // .select() encadenado de supabase-js) exige, además de pasar la
+  // política de INSERT, pasar también la política de SELECT sobre esa
+  // fila — y anon no tiene permiso de leer `orders` (a propósito, ver
+  // policy orders_staff_select). Sin esto, ni siquiera el creador del
+  // pedido podría recibir de vuelta su propio id/número de pedido.
+  // La API sigue siendo la única puerta de entrada: el navegador nunca
+  // ve esta key ni puede saltarse la validación de precio de arriba.
+  const supabaseAdmin = createSupabaseAdminClient();
+
   let body: unknown;
   try {
     body = await request.json();
@@ -72,7 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
   const discount = 0;
   const total = calculateOrderTotal({ subtotal, discount, deliveryCost });
 
-  const { data: order, error: orderError } = await supabasePublic
+  const { data: order, error: orderError } = await supabaseAdmin
     .from("orders")
     .insert({
       customer_name: input.customerName,
@@ -90,12 +102,11 @@ export const POST: APIRoute = async ({ request }) => {
     .single();
 
   if (orderError || !order) {
-    console.error("Error creando pedido:", orderError?.message);
-    return json({ error: "No se pudo crear el pedido" }, 500);
+    return json({ error: "No se pudo crear el pedido", debug: orderError }, 500);
   }
 
   for (const item of resolvedItems) {
-    const { data: orderItem, error: itemError } = await supabasePublic
+    const { data: orderItem, error: itemError } = await supabaseAdmin
       .from("order_items")
       .insert({
         order_id: order.id,
@@ -128,7 +139,7 @@ export const POST: APIRoute = async ({ request }) => {
     ];
 
     if (ingredientRows.length > 0) {
-      const { error: ingError } = await supabasePublic.from("order_item_ingredients").insert(ingredientRows);
+      const { error: ingError } = await supabaseAdmin.from("order_item_ingredients").insert(ingredientRows);
       if (ingError) console.error("Error creando order_item_ingredients:", ingError.message);
     }
   }

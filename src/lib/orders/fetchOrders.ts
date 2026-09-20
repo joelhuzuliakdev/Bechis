@@ -61,7 +61,11 @@ export async function fetchOrderById(client: SupabaseClient, id: string): Promis
 }
 
 export async function fetchActiveOrders(client: SupabaseClient): Promise<OrderCardData[]> {
-  const { data, error } = await client.from("orders").select(ORDER_SELECT).order("created_at", { ascending: true });
+  const { data, error } = await client
+    .from("orders")
+    .select(ORDER_SELECT)
+    .neq("payment_status", "cobrado") // ya cobrados = viven en Ventas, no en este tablero
+    .order("created_at", { ascending: true });
   if (error || !data) return [];
   return data.map(mapOrderRow);
 }

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchActiveOrders } from "@/lib/orders/fetchOrders";
 
 const profile = Astro.locals.profile!;
+
 const supabase = createSupabaseServerClient(Astro.cookies);
 const orders = await fetchActiveOrders(supabase);
 
@@ -21,18 +22,25 @@ const columns = [
   </div>
 
   <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-    {columns.map((col) => (
-      <div class="rounded-lg bg-gray-100 p-3">
-        <div class="mb-3 flex items-center justify-between px-1">
-          <h3 class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-            <span>{col.emoji}</span>
-            {col.title}
-          </h3>
-          <span data-count-for={`column-${col.id}`} class="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-gray-500 shadow-sm">0</span>
+    {
+      columns.map((col) => (
+        <div class="rounded-lg bg-gray-100 p-3">
+          <div class="mb-3 flex items-center justify-between px-1">
+            <h3 class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+              <span>{col.emoji}</span>
+              {col.title}
+            </h3>
+            <span
+              data-count-for={`column-${col.id}`}
+              class="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-gray-500 shadow-sm"
+            >
+              0
+            </span>
+          </div>
+          <div id={`column-${col.id}`} class="min-h-[120px]" />
         </div>
-        <div id={`column-${col.id}`} class="min-h-[120px]" />
-      </div>
-    ))}
+      ))
+    }
   </div>
 
   <script type="application/json" id="initial-orders-data" set:html={JSON.stringify(orders)} />

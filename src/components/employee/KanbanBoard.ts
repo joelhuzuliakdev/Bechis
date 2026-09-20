@@ -42,7 +42,10 @@ function renderActionButton(order: OrderCardData): string {
   if (order.status === "en_proceso") {
     return `<button type="button" data-action="advance" data-next="finalizado" class="mt-3 w-full rounded-md bg-gray-900 px-3 py-2 text-xs font-bold text-white">Finalizar</button>`;
   }
-  return `<button type="button" disabled class="mt-3 w-full rounded-md bg-gray-100 px-3 py-2 text-xs font-bold text-gray-400">Cobrar (próximamente)</button>`;
+  if (order.paymentStatus === "cobrado") {
+    return `<div class="mt-3 w-full rounded-md bg-green-50 px-3 py-2 text-center text-xs font-bold text-green-700">✓ Cobrado</div>`;
+  }
+  return `<button type="button" data-action="cobrar" class="mt-3 w-full rounded-md bg-bechis-yellow px-3 py-2 text-xs font-bold text-ink">Cobrar / Pasar a venta</button>`;
 }
 
 function buildCardEl(order: OrderCardData): HTMLElement {
@@ -83,7 +86,110 @@ function buildCardEl(order: OrderCardData): HTMLElement {
     moveCard(order, card);
   });
 
+  card.querySelector("[data-action='cobrar']")?.addEventListener("click", () => {
+    openCobrarModal(order, card);
+  });
+
   return card;
+}
+
+const PAYMENT_METHODS: { value: string; label: string }[] = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "qr", label: "QR" },
+  { value: "debito", label: "Tarjeta de débito" },
+  { value: "credito", label: "Tarjeta de crédito" },
+];
+
+function openCobrarModal(order: OrderCardData, cardEl: HTMLElement) {
+  const overlay = document.createElement("div");
+  overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+  overlay.innerHTML = `
+    <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <h3 class="mb-1 text-base font-bold text-gray-900">Cobrar pedido #${order.orderNumber}</h3>
+      <p class="mb-4 text-sm text-gray-500">Total: <span class="font-bold text-gray-900">${money(order.total)}</span></p>
+
+      <label class="mb-1 block text-xs font-medium text-gray-500">Método de pago</label>
+      <select data-role="method" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+        ${PAYMENT_METHODS.map((m) => `<option value="${m.value}">${m.label}</option>`).join("")}
+      </select>
+
+      <div data-role="cash-fields" class="mb-3">
+        <label class="mb-1 block text-xs font-medium text-gray-500">Monto recibido</label>
+        <input data-role="received" type="number" min="0" step="1" class="mb-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" placeholder="${order.total}" />
+        <p class="text-xs text-gray-500">Vuelto: <span data-role="change">$0</span></p>
+      </div>
+
+      <p data-role="modal-error" class="mb-2 text-xs text-red-600"></p>
+
+      <div class="flex gap-2">
+        <button data-role="cancel" type="button" class="flex-1 rounded-md border border-gray-200 py-2.5 text-sm font-semibold text-gray-600">Cancelar</button>
+        <button data-role="confirm" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink">Confirmar cobro</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const methodSelect = overlay.querySelector<HTMLSelectElement>("[data-role='method']")!;
+  const cashFields = overlay.querySelector<HTMLElement>("[data-role='cash-fields']")!;
+  const receivedInput = overlay.querySelector<HTMLInputElement>("[data-role='received']")!;
+  const changeEl = overlay.querySelector<HTMLElement>("[data-role='change']")!;
+  const errorEl = overlay.querySelector<HTMLElement>("[data-role='modal-error']")!;
+  const confirmBtn = overlay.querySelector<HTMLButtonElement>("[data-role='confirm']")!;
+
+  function toggleCashFields() {
+    cashFields.classList.toggle("hidden", methodSelect.value !== "efectivo");
+  }
+  function updateChange() {
+    const received = Number(receivedInput.value || 0);
+    changeEl.textContent = money(Math.max(0, received - order.total));
+  }
+
+  methodSelect.addEventListener("change", toggleCashFields);
+  receivedInput.addEventListener("input", updateChange);
+  toggleCashFields();
+  updateChange();
+
+  overlay.querySelector("[data-role='cancel']")?.addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    errorEl.textContent = "";
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Cobrando...";
+
+    const paymentMethod = methodSelect.value;
+    const receivedAmount = paymentMethod === "efectivo" ? Number(receivedInput.value || 0) : undefined;
+
+    if (paymentMethod === "efectivo" && (!receivedAmount || receivedAmount < order.total)) {
+      errorEl.textContent = "El monto recibido debe ser al menos el total.";
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirmar cobro";
+      return;
+    }
+
+    const res = await fetch(`/api/orders/${order.id}/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentMethod, receivedAmount, discount: 0 }),
+    });
+
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}));
+      errorEl.textContent = result.error ?? "No se pudo cobrar el pedido.";
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirmar cobro";
+      return;
+    }
+
+    order.paymentStatus = "cobrado";
+    cardEl.remove();
+    updateColumnCounts();
+    showToast(`✓ Venta registrada — Pedido #${order.orderNumber}`);
+    overlay.remove();
+  });
 }
 
 function moveCard(order: OrderCardData, existingEl?: HTMLElement) {
@@ -103,7 +209,7 @@ function updateColumnCounts() {
   });
 }
 
-export function attachKanbanBoard(initialOrdersJson: string) {
+export async function attachKanbanBoard(initialOrdersJson: string) {
   let initialOrders: OrderCardData[] = [];
   try {
     initialOrders = JSON.parse(initialOrdersJson);
@@ -116,6 +222,16 @@ export function attachKanbanBoard(initialOrdersJson: string) {
   });
   updateColumnCounts();
 
+  // Clave: sin esto, la conexión de Realtime puede quedar "anónima"
+  // a los ojos de la RLS (orders_staff_select exige current_user_is_staff()),
+  // y entonces no llega NINGÚN evento, sin ningún error visible.
+  const {
+    data: { session },
+  } = await supabaseBrowser.auth.getSession();
+  if (session) {
+    supabaseBrowser.realtime.setAuth(session.access_token);
+  }
+
   supabaseBrowser
     .channel("orders-changes")
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, async (payload) => {
@@ -127,6 +243,13 @@ export function attachKanbanBoard(initialOrdersJson: string) {
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, async (payload) => {
       const existingEl = document.querySelector<HTMLElement>(`[data-order-id='${payload.new.id}']`);
+
+      if (payload.new.payment_status === "cobrado") {
+        existingEl?.remove();
+        updateColumnCounts();
+        return;
+      }
+
       const res = await fetch(`/api/orders/${payload.new.id}`);
       if (!res.ok) return;
       const order: OrderCardData = await res.json();

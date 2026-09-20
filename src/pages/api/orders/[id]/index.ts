@@ -4,6 +4,7 @@ import { fetchOrderById } from "@/lib/orders/fetchOrders";
 
 export const GET: APIRoute = async ({ params, cookies }) => {
   const supabase = createSupabaseServerClient(cookies);
+
   const order = await fetchOrderById(supabase, params.id!);
 
   if (!order) {
@@ -12,5 +13,9 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
-  return new Response(JSON.stringify(order), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  return new Response(JSON.stringify(order), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 };
