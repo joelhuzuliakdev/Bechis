@@ -1,0 +1,212 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import StatCard from "@/components/admin/StatCard.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getOpenCashRegister, getCashRegisterSummary } from "@/lib/cash/fetchCashRegister";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const register = await getOpenCashRegister(supabase);
+const summary = register ? await getCashRegisterSummary(supabase, register) : null;
+
+const money = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+const MOVEMENT_LABELS: Record<string, string> = { ingreso: "Ingreso", egreso: "Egreso", retiro: "Retiro" };
+---
+
+<AdminLayout title="Caja" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
+  {
+    !register ? (
+      <div class="mx-auto max-w-sm rounded-lg border border-gray-200 bg-white p-6">
+        <h2 class="mb-1 text-base font-semibold text-gray-900">Abrir caja</h2>
+        <p class="mb-4 text-sm text-gray-500">No hay ninguna caja abierta ahora mismo.</p>
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Monto inicial</label>
+        <input
+          id="opening-amount"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="0"
+          class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+        />
+        <p id="open-error" class="mb-2 text-xs text-red-600" />
+        <button
+          id="open-submit"
+          type="button"
+          class="w-full rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink"
+        >
+          Abrir caja
+        </button>
+      </div>
+    ) : (
+      <Fragment>
+        <div class="mb-2 flex items-center justify-between">
+          <p class="text-sm text-gray-500">
+            Abierta el{" "}
+            {new Date(summary!.register.openedAt).toLocaleString("es-AR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}{" "}
+            {summary!.register.openedByName && `por ${summary!.register.openedByName}`}
+          </p>
+          <a href="/admin/caja/historial" class="text-sm font-medium text-gray-500 underline">
+            Ver historial
+          </a>
+        </div>
+
+        <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard label="Monto inicial" value={money(summary!.register.openingAmount)} />
+          <StatCard label="Ventas en efectivo" value={money(summary!.cashSales)} />
+          <StatCard label="Ingresos" value={money(summary!.ingresos)} />
+          <StatCard label="Egresos" value={money(summary!.egresos)} />
+          <StatCard label="Retiros" value={money(summary!.retiros)} />
+        </div>
+
+        <div class="mb-6">
+          <StatCard label="Total esperado en caja" value={money(summary!.expectedTotal)} accent />
+        </div>
+
+        <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-gray-200 bg-white p-4">
+            <h3 class="mb-3 text-sm font-semibold text-gray-900">Cargar movimiento</h3>
+            <select id="movement-type" class="mb-2 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+              <option value="ingreso">Ingreso</option>
+              <option value="egreso">Egreso</option>
+              <option value="retiro">Retiro</option>
+            </select>
+            <input
+              id="movement-amount"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Monto"
+              class="mb-2 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+            />
+            <input
+              id="movement-description"
+              type="text"
+              placeholder="Descripción (opcional)"
+              class="mb-2 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+            />
+            <p id="movement-error" class="mb-2 text-xs text-red-600" />
+            <button
+              id="movement-submit"
+              type="button"
+              class="w-full rounded-md bg-gray-900 py-2.5 text-sm font-bold text-white"
+            >
+              Registrar movimiento
+            </button>
+          </div>
+
+          <div class="rounded-lg border border-gray-200 bg-white p-4">
+            <h3 class="mb-3 text-sm font-semibold text-gray-900">Cerrar caja</h3>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Monto real contado</label>
+            <input
+              id="real-amount"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0"
+              class="mb-2 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+            />
+            <p id="close-error" class="mb-2 text-xs text-red-600" />
+            <button
+              id="close-submit"
+              type="button"
+              class="w-full rounded-md bg-danger py-2.5 text-sm font-bold text-white"
+            >
+              Cerrar caja
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th class="px-4 py-3">Tipo</th>
+                <th class="px-4 py-3">Descripción</th>
+                <th class="px-4 py-3">Hora</th>
+                <th class="px-4 py-3 text-right">Monto</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {summary!.movements.length === 0 ? (
+                <tr>
+                  <td colspan="4" class="px-4 py-8 text-center text-gray-400">
+                    Todavía no cargaste ningún movimiento.
+                  </td>
+                </tr>
+              ) : (
+                summary!.movements.map((m) => (
+                  <tr>
+                    <td class="px-4 py-3 text-gray-700">{MOVEMENT_LABELS[m.type]}</td>
+                    <td class="px-4 py-3 text-gray-500">{m.description ?? "—"}</td>
+                    <td class="px-4 py-3 text-gray-500">
+                      {new Date(m.createdAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-900">{money(m.amount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Fragment>
+    )
+  }
+
+  <script>
+    async function post(url: string, body: unknown) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error ?? "Error inesperado");
+      return result;
+    }
+
+    document.getElementById("open-submit")?.addEventListener("click", async () => {
+      const input = document.getElementById("opening-amount") as HTMLInputElement;
+      const errorEl = document.getElementById("open-error")!;
+      try {
+        await post("/api/cash-register/open", { openingAmount: Number(input.value || 0) });
+        location.reload();
+      } catch (e) {
+        errorEl.textContent = (e as Error).message;
+      }
+    });
+
+    document.getElementById("movement-submit")?.addEventListener("click", async () => {
+      const type = (document.getElementById("movement-type") as HTMLSelectElement).value;
+      const amount = Number((document.getElementById("movement-amount") as HTMLInputElement).value || 0);
+      const description = (document.getElementById("movement-description") as HTMLInputElement).value;
+      const errorEl = document.getElementById("movement-error")!;
+      try {
+        await post("/api/cash-register/movement", { type, amount, description: description || undefined });
+        location.reload();
+      } catch (e) {
+        errorEl.textContent = (e as Error).message;
+      }
+    });
+
+    document.getElementById("close-submit")?.addEventListener("click", async () => {
+      const realAmount = Number((document.getElementById("real-amount") as HTMLInputElement).value || 0);
+      const errorEl = document.getElementById("close-error")!;
+      if (!confirm("¿Confirmás el cierre de caja? Esta acción no se puede deshacer.")) return;
+      try {
+        await post("/api/cash-register/close", { realAmount });
+        location.reload();
+      } catch (e) {
+        errorEl.textContent = (e as Error).message;
+      }
+    });
+  </script>
+</AdminLayout>

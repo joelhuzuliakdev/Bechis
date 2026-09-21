@@ -1,0 +1,16 @@
+---
+export interface Props {
+  label: string;
+  value: string;
+  sublabel?: string;
+  accent?: boolean;
+}
+
+const { label, value, sublabel, accent = false } = Astro.props;
+---
+
+<div class:list={["rounded-lg border bg-white p-4", accent ? "border-bechis-yellow" : "border-gray-200"]}>
+  <p class="mb-1 text-xs font-medium text-gray-500">{label}</p>
+  <p class="font-display text-xl text-gray-900">{value}</p>
+  {sublabel && <p class="mt-0.5 text-xs text-gray-400">{sublabel}</p>}
+</div>

@@ -1,0 +1,135 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import StatCard from "@/components/admin/StatCard.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSalesInRange, PAYMENT_METHOD_LABELS } from "@/lib/sales/fetchSales";
+import { getPresetRange, parseCustomRange, toDateInputValue, type DateRangePreset } from "@/lib/format/dateRanges";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const url = Astro.url;
+const presetParam = (url.searchParams.get("range") as DateRangePreset) || "hoy";
+const fromParam = url.searchParams.get("from") ?? "";
+const toParam = url.searchParams.get("to") ?? "";
+
+const range =
+  presetParam === "personalizado" && fromParam && toParam
+    ? parseCustomRange(fromParam, toParam)
+    : getPresetRange(presetParam);
+
+const { sales, totalAmount, totalsByMethod } = await fetchSalesInRange(supabase, range.from, range.to);
+
+const money = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+const filters: { value: DateRangePreset; label: string }[] = [
+  { value: "hoy", label: "Hoy" },
+  { value: "ayer", label: "Ayer" },
+  { value: "semana", label: "Esta semana" },
+  { value: "mes", label: "Este mes" },
+];
+---
+
+<AdminLayout title="Ventas" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
+  <div class="mb-5 flex flex-wrap items-center gap-2">
+    {
+      filters.map((f) => (
+        <a
+          href={`?range=${f.value}`}
+          class:list={[
+            "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+            presetParam === f.value ? "bg-ink text-white" : "bg-white text-gray-600 hover:bg-gray-100",
+          ]}
+        >
+          {f.label}
+        </a>
+      ))
+    }
+
+    <form method="GET" class="flex items-center gap-1.5 rounded-full bg-white px-2 py-1">
+      <input type="hidden" name="range" value="personalizado" />
+      <input
+        type="date"
+        name="from"
+        value={presetParam === "personalizado" ? fromParam : toDateInputValue(range.from)}
+        class="rounded-md border-none bg-transparent px-1 py-1 text-sm text-gray-700 outline-none"
+      />
+      <span class="text-gray-400">–</span>
+      <input
+        type="date"
+        name="to"
+        value={presetParam === "personalizado" ? toParam : toDateInputValue(range.to)}
+        class="rounded-md border-none bg-transparent px-1 py-1 text-sm text-gray-700 outline-none"
+      />
+      <button
+        type="submit"
+        class:list={[
+          "rounded-full px-3 py-1 text-sm font-medium",
+          presetParam === "personalizado" ? "bg-ink text-white" : "bg-gray-100 text-gray-600",
+        ]}
+      >
+        Aplicar
+      </button>
+    </form>
+  </div>
+
+  <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <StatCard label="Total del período" value={money(totalAmount)} accent />
+    {
+      Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
+        <StatCard label={label} value={money(totalsByMethod[key] ?? 0)} />
+      ))
+    }
+  </div>
+
+  <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+        <tr>
+          <th class="px-4 py-3">N°</th>
+          <th class="px-4 py-3">Fecha</th>
+          <th class="px-4 py-3">Cliente</th>
+          <th class="px-4 py-3">Pedido</th>
+          <th class="px-4 py-3">Empleado</th>
+          <th class="px-4 py-3">Método</th>
+          <th class="px-4 py-3 text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {
+          sales.length === 0 ? (
+            <tr>
+              <td colspan="7" class="px-4 py-10 text-center text-gray-400">
+                No hay ventas en este período.
+              </td>
+            </tr>
+          ) : (
+            sales.map((s) => (
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 font-semibold text-gray-900">#{s.saleNumber}</td>
+                <td class="px-4 py-3 text-gray-500">
+                  {new Date(s.createdAt).toLocaleString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </td>
+                <td class="px-4 py-3 text-gray-700">{s.customerName ?? "—"}</td>
+                <td class="px-4 py-3 text-gray-500">{s.orderNumber ? `#${s.orderNumber}` : "—"}</td>
+                <td class="px-4 py-3 text-gray-500">{s.employeeName ?? "—"}</td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    {PAYMENT_METHOD_LABELS[s.paymentMethod] ?? s.paymentMethod}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right font-display text-gray-900">{money(s.total)}</td>
+              </tr>
+            ))
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>
