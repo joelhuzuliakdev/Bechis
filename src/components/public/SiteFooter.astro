@@ -9,13 +9,15 @@ const currentYear = new Date().getFullYear();
 <footer class="border-t border-bechis-yellow bg-ink text-white">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 md:flex-row md:justify-between md:px-8">
         <div>
-            <div class="mb-2 flex items-center gap-2">
-                <span class="flex h-7 w-7 items-center justify-center rounded-md bg-bechis-yellow text-xs font-display text-ink">
-                B
-                </span>
-                <span class="font-display text-base tracking-tight">BECHIS</span>
+            <div class="mb-3 flex items-center">
+                <img
+                    src="/logoBechisSinFondo.webp"
+                    alt="Bechis"
+                    class="h-16 w-auto object-contain"
+                />
             </div>
-            <p class="max-w-xs text-sm text-white/60">
+
+            <p class="max-w-xs text-sm leading-relaxed text-white/60">
                 Hamburguesas armadas al momento, con ingredientes elegidos por vos.
             </p>
         </div>
@@ -26,15 +28,21 @@ const currentYear = new Date().getFullYear();
                 <p class="text-white/70">Mar a Dom</p>
                 <p class="text-white/70">19:00 – 00:30</p>
             </div>
+
             <div>
                 <h4 class="mb-2 font-semibold text-bechis-yellow">Ubicación</h4>
                 <p class="text-white/70">Río Segundo, Córdoba</p>
                 <p class="text-white/70">Retiro y envío</p>
             </div>
+
             <div>
                 <h4 class="mb-2 font-semibold text-bechis-yellow">Pedidos</h4>
-                <a href="/" class="block text-white/70 transition-colors hover:text-white">Ver catálogo</a>
-                <a href="/carrito" class="block text-white/70 transition-colors hover:text-white">Mi carrito</a>
+                <a href="/" class="block text-white/70 transition-colors hover:text-white">
+                    Ver catálogo
+                </a>
+                <a href="/carrito" class="block text-white/70 transition-colors hover:text-white">
+                    Mi carrito
+                </a>
             </div>
         </div>
     </div>
