@@ -1,0 +1,187 @@
+---
+import type { PromotionDetail, SelectableProduct } from "@/lib/promotions/fetchPromotions";
+
+export interface Props {
+    mode: "create" | "edit";
+    promotion: PromotionDetail | null;
+    products: SelectableProduct[];
+}
+
+const { mode, promotion, products } = Astro.props;
+
+const DAY_OPTIONS = [
+    { value: "", label: "Todos los días" },
+    { value: "0", label: "Domingo" },
+    { value: "1", label: "Lunes" },
+    { value: "2", label: "Martes" },
+    { value: "3", label: "Miércoles" },
+    { value: "4", label: "Jueves" },
+    { value: "5", label: "Viernes" },
+    { value: "6", label: "Sábado" },
+];
+---
+
+<div id="promo-form-root" data-mode={mode} data-promotion-id={promotion?.id ?? ""} class="mx-auto max-w-xl">
+    <div class="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+        <label class="mb-1 block text-xs font-medium text-gray-500">Nombre</label>
+        <input
+        name="name"
+        type="text"
+        value={promotion?.name ?? ""}
+        placeholder="Ej: Promo Martes"
+        class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+        />
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Descripción (opcional)</label>
+        <textarea
+        name="description"
+        rows="2"
+        class="mb-3 w-full resize-none rounded-md border border-gray-200 px-3 py-2 text-sm"
+        >{promotion?.description ?? ""}</textarea>
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Tipo de promoción</label>
+        <select name="type" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+        <option value="2x1" selected={promotion?.type === "2x1"}>2x1</option>
+        <option value="descuento_porcentual" selected={promotion?.type === "descuento_porcentual"}>
+            % de descuento
+        </option>
+        <option value="combo" selected={promotion?.type === "combo"}>Combo</option>
+        </select>
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Valor del descuento (%, si aplica)</label>
+        <input
+        name="discountValue"
+        type="number"
+        min="0"
+        step="1"
+        value={promotion?.discountValue ?? 0}
+        class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+        />
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Día de la semana</label>
+        <select name="dayOfWeek" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+        {
+            DAY_OPTIONS.map((d) => (
+            <option value={d.value} selected={String(promotion?.dayOfWeek ?? "") === d.value}>
+                {d.label}
+            </option>
+            ))
+        }
+        </select>
+
+        <div class="mb-3 grid grid-cols-2 gap-2">
+        <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Desde</label>
+            <input
+            name="startDate"
+            type="date"
+            value={promotion?.startDate?.slice(0, 10) ?? ""}
+            class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+            />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Hasta</label>
+            <input
+            name="endDate"
+            type="date"
+            value={promotion?.endDate?.slice(0, 10) ?? ""}
+            class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+            />
+        </div>
+        </div>
+
+        <label class="mb-2 flex items-center gap-2 text-sm text-gray-700">
+        <input name="active" type="checkbox" checked={promotion?.active ?? false} class="accent-bechis-yellow" />
+        Promoción activa
+        </label>
+    </div>
+
+    <div class="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+        <h3 class="mb-2 text-sm font-semibold text-gray-900">Productos incluidos</h3>
+        {products.length === 0 && <p class="text-xs text-gray-400">No hay productos activos para elegir.</p>}
+        <div class="grid grid-cols-2 gap-1.5">
+        {
+            products.map((prod) => (
+            <label class="flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-sm text-gray-700">
+                <input
+                type="checkbox"
+                name="productIds"
+                value={prod.id}
+                checked={promotion?.productIds.includes(prod.id) ?? false}
+                class="accent-bechis-yellow"
+                />
+                {prod.name}
+            </label>
+            ))
+        }
+        </div>
+    </div>
+
+    <p data-role="form-error" class="mb-3 text-sm text-danger"></p>
+
+    <div class="flex gap-2">
+        <a href="/admin/promos" class="flex-1 rounded-md border border-gray-200 py-2.5 text-center text-sm font-semibold text-gray-600">
+        Cancelar
+        </a>
+        <button data-role="submit" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink">
+        {mode === "create" ? "Crear promoción" : "Guardar cambios"}
+        </button>
+    </div>
+</div>
+
+<script>
+    const root = document.getElementById("promo-form-root")!;
+    const mode = root.dataset.mode as "create" | "edit";
+    const promotionId = root.dataset.promotionId;
+
+    root.querySelector("[data-role='submit']")?.addEventListener("click", async () => {
+        const errorEl = root.querySelector<HTMLElement>("[data-role='form-error']")!;
+        errorEl.textContent = "";
+
+        const name = (root.querySelector("[name='name']") as HTMLInputElement).value.trim();
+        const description = (root.querySelector("[name='description']") as HTMLTextAreaElement).value.trim();
+        const type = (root.querySelector("[name='type']") as HTMLSelectElement).value;
+        const discountValue = Number((root.querySelector("[name='discountValue']") as HTMLInputElement).value || 0);
+        const dayOfWeekRaw = (root.querySelector("[name='dayOfWeek']") as HTMLSelectElement).value;
+        const startDate = (root.querySelector("[name='startDate']") as HTMLInputElement).value || null;
+        const endDate = (root.querySelector("[name='endDate']") as HTMLInputElement).value || null;
+        const active = (root.querySelector("[name='active']") as HTMLInputElement).checked;
+        const productIds = Array.from(
+        root.querySelectorAll<HTMLInputElement>("[name='productIds']:checked")
+        ).map((el) => el.value);
+
+        if (name.length < 2) {
+        errorEl.textContent = "Ponele un nombre a la promo.";
+        return;
+        }
+
+        const payload = {
+        name,
+        description: description || undefined,
+        type,
+        discountValue,
+        dayOfWeek: dayOfWeekRaw === "" ? null : Number(dayOfWeekRaw),
+        startDate,
+        endDate,
+        active,
+        productIds,
+        };
+
+        const url = mode === "create" ? "/api/promotions/create" : `/api/promotions/${promotionId}`;
+        const method = mode === "create" ? "POST" : "PATCH";
+
+        const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+        const result = await res.json().catch(() => ({}));
+        errorEl.textContent = result.error ?? "No se pudo guardar la promoción.";
+        return;
+        }
+
+        window.location.href = "/admin/promos";
+    });
+</script>

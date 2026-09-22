@@ -1,0 +1,22 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import PromoForm from "@/components/admin/PromoForm.astro";
+import EmptyState from "@/components/ui/EmptyState.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getPromotionById, getSelectableProducts } from "@/lib/promotions/fetchPromotions";
+
+const profile = Astro.locals.profile!;
+const { id } = Astro.params;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const [promotion, products] = await Promise.all([getPromotionById(supabase, id!), getSelectableProducts(supabase)]);
+---
+
+<AdminLayout title="Editar promo" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <h2 class="mb-5 text-lg font-semibold text-gray-900">Editar promoción</h2>
+    {promotion ? (
+        <PromoForm mode="edit" promotion={promotion} products={products} />
+    ) : (
+        <EmptyState message="No encontramos esa promoción." />
+    )}
+</AdminLayout>

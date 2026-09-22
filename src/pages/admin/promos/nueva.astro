@@ -1,0 +1,15 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import PromoForm from "@/components/admin/PromoForm.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSelectableProducts } from "@/lib/promotions/fetchPromotions";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+const products = await getSelectableProducts(supabase);
+---
+
+<AdminLayout title="Nueva promo" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <h2 class="mb-5 text-lg font-semibold text-gray-900">Nueva promoción</h2>
+    <PromoForm mode="create" promotion={null} products={products} />
+</AdminLayout>

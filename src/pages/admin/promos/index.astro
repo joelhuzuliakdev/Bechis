@@ -1,0 +1,106 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listPromotions } from "@/lib/promotions/fetchPromotions";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+const promotions = await listPromotions(supabase);
+
+const TYPE_LABELS: Record<string, string> = {
+    "2x1": "2x1",
+    descuento_porcentual: "% de descuento",
+    combo: "Combo",
+};
+
+const DAY_LABELS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+---
+
+<AdminLayout title="Promos" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <div class="mb-5 flex items-center justify-between">
+        <p class="text-sm text-gray-500">Promociones preconfiguradas para el catálogo.</p>
+        <a href="/admin/promos/nueva" class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-bold text-ink">
+        + Nueva promo
+        </a>
+    </div>
+
+    {
+        promotions.length === 0 ? (
+        <div class="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-400">
+            Todavía no creaste ninguna promoción.
+        </div>
+        ) : (
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {promotions.map((p) => (
+            <div class="rounded-lg border border-gray-200 bg-white p-4" data-promo-id={p.id}>
+                <div class="mb-2 flex items-start justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-gray-900">{p.name}</h3>
+                    <span class="text-xs text-gray-400">{TYPE_LABELS[p.type] ?? p.type}</span>
+                </div>
+                <button
+                    type="button"
+                    data-action="toggle-active"
+                    data-active={p.active ? "true" : "false"}
+                    class:list={[
+                    "rounded-full px-3 py-1 text-xs font-bold",
+                    p.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500",
+                    ]}
+                >
+                    {p.active ? "Activa" : "Inactiva"}
+                </button>
+                </div>
+
+                <p class="mb-2 text-xs text-gray-500">
+                {p.type === "descuento_porcentual" ? `${p.discountValue}% de descuento` : TYPE_LABELS[p.type]}
+                {p.dayOfWeek !== null && ` — solo los ${DAY_LABELS[p.dayOfWeek]}`}
+                </p>
+
+                {p.productNames.length > 0 && (
+                <p class="mb-3 text-xs text-gray-400">Productos: {p.productNames.join(", ")}</p>
+                )}
+
+                <div class="flex gap-2">
+                <a
+                    href={`/admin/promos/${p.id}/editar`}
+                    class="flex-1 rounded-md border border-gray-200 py-2 text-center text-xs font-semibold text-gray-600"
+                >
+                    Editar
+                </a>
+                <button
+                    type="button"
+                    data-action="delete"
+                    class="flex-1 rounded-md border border-red-200 py-2 text-xs font-semibold text-red-600"
+                >
+                    Eliminar
+                </button>
+                </div>
+            </div>
+            ))}
+        </div>
+        )
+    }
+
+    <script>
+        document.querySelectorAll<HTMLElement>("[data-promo-id]").forEach((card) => {
+        const id = card.dataset.promoId!;
+
+        card.querySelector("[data-action='toggle-active']")?.addEventListener("click", async (e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            const nextActive = btn.dataset.active !== "true";
+            const res = await fetch(`/api/promotions/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ active: nextActive }),
+            });
+            if (res.ok) location.reload();
+        });
+
+        card.querySelector("[data-action='delete']")?.addEventListener("click", async () => {
+            if (!confirm("¿Eliminar esta promoción?")) return;
+            const res = await fetch(`/api/promotions/${id}`, { method: "DELETE" });
+            if (res.ok) location.reload();
+        });
+        });
+    </script>
+</AdminLayout>
