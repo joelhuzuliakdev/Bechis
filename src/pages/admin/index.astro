@@ -1,21 +1,79 @@
 ---
 import AdminLayout from "@/layouts/AdminLayout.astro";
+import StatCard from "@/components/admin/StatCard.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTodaySales, getPendingOrders, getLowStockProducts } from "@/lib/dashboard/fetchDashboard";
 
-// El middleware garantiza que si llegamos hasta acá, locals.profile
-// existe y es admin (esta ruta no está en EMPLOYEE_ALLOWED_PREFIXES).
 const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const [todaySales, pending, lowStock] = await Promise.all([
+    getTodaySales(supabase),
+    getPendingOrders(supabase, 5),
+    getLowStockProducts(supabase),
+]);
+
+const money = (n: number) =>
+    new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+const STATUS_LABELS: Record<string, string> = { pedidos: "Nuevo", en_proceso: "En proceso" };
 ---
 
 <AdminLayout title="Inicio" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
     <div class="mb-6">
         <h2 class="text-lg font-semibold text-gray-900">Hola, {profile.fullName || "administrador"} 👋</h2>
-        <p class="text-sm text-gray-500">
-        El login y la protección de rutas ya están funcionando. Las tarjetas de ventas, pedidos pendientes y stock
-        bajo van en el próximo paso.
-        </p>
+        <p class="text-sm text-gray-500">Así está Bechis ahora mismo.</p>
     </div>
 
-    <div class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
-        Próximamente: resumen del día, últimas ventas, pedidos pendientes y alertas de stock.
+    <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <StatCard label="Ventas de hoy" value={money(todaySales.total)} sublabel={`${todaySales.count} ${todaySales.count === 1 ? "venta" : "ventas"}`} accent />
+        <StatCard label="Pedidos pendientes" value={String(pending.count)} sublabel="en cola (pedidos + en proceso)" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="rounded-lg border border-gray-200 bg-white">
+        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <h3 class="text-sm font-semibold text-gray-900">Pedidos pendientes</h3>
+            <a href="/empleado/pedidos" class="text-xs font-medium text-gray-500 underline">Ver Panel Empleado</a>
+        </div>
+        {pending.orders.length === 0 ? (
+            <p class="px-4 py-8 text-center text-sm text-gray-400">No hay pedidos pendientes 🎉</p>
+        ) : (
+            <ul class="divide-y divide-gray-100">
+            {pending.orders.map((o) => (
+                <li class="flex items-center justify-between px-4 py-3 text-sm">
+                <div>
+                    <p class="font-semibold text-gray-900">
+                    #{o.orderNumber} · {o.customerName}
+                    </p>
+                    <p class="text-xs text-gray-400">{STATUS_LABELS[o.status]}</p>
+                </div>
+                <span class="font-display text-gray-900">{money(o.total)}</span>
+                </li>
+            ))}
+            </ul>
+        )}
+        </div>
+
+        <div class="rounded-lg border border-gray-200 bg-white">
+        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <h3 class="text-sm font-semibold text-gray-900">⚠️ Stock bajo</h3>
+            <a href="/admin/stock" class="text-xs font-medium text-gray-500 underline">Ver Stock</a>
+        </div>
+        {lowStock.length === 0 ? (
+            <p class="px-4 py-8 text-center text-sm text-gray-400">Todo el stock está bien 👍</p>
+        ) : (
+            <ul class="divide-y divide-gray-100">
+            {lowStock.map((p) => (
+                <li class="flex items-center justify-between px-4 py-3 text-sm">
+                <span class="text-gray-700">{p.name}</span>
+                <span class="font-semibold text-danger">
+                    {p.stock} / {p.minStock}
+                </span>
+                </li>
+            ))}
+            </ul>
+        )}
+        </div>
     </div>
 </AdminLayout>
