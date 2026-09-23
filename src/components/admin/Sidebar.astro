@@ -50,43 +50,51 @@ const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
     <aside
         id="admin-sidebar"
-        class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full transform bg-[#141414] text-white transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0"
+        class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full transform flex-col bg-[#141414] text-white transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0"
     >
         <div class="flex h-14 items-center gap-2 border-b border-white/10 px-4">
-        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-bechis-yellow font-display text-sm text-ink">
-            B
+        <span class="flex h-14 w-14 items-center justify-center rounded-md font-display text-sm text-ink">
+            <img src="/logoBechisSinFondo.webp" alt="Logo Bechis">
         </span>
-        <span class="font-display text-sm tracking-tight">BECHIS</span>
         </div>
 
-        <nav class="flex flex-col gap-0.5 p-3">
-        {
-            visibleItems.map((item) => {
-            const isActive = currentPath === item.href || currentPath.startsWith(item.href + "/");
-            return (
-                <a
-                href={item.href}
-                class:list={[
-                    "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition-colors",
-                    isActive ? "bg-bechis-yellow text-ink font-semibold" : "text-white/70 hover:bg-white/10 hover:text-white",
-                ]}
-                >
-                <span class="text-base">{item.icon}</span>
-                {item.label}
-                </a>
-            );
-            })
-        }
+        <nav class="sidebar-scroll min-h-0 flex-1 overflow-y-auto p-3">
+            {
+                visibleItems.map((item) => {
+                    const isActive =
+                        currentPath === item.href ||
+                        currentPath.startsWith(item.href + "/");
+
+                    return (
+                        <a
+                            href={item.href}
+                            class:list={[
+                                "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition-colors",
+                                isActive
+                                    ? "bg-bechis-yellow text-ink font-semibold"
+                                    : "text-white/70 hover:bg-white/10 hover:text-white",
+                            ]}
+                        >
+                            <span class="text-base">{item.icon}</span>
+                            {item.label}
+                        </a>
+                    );
+                })
+            }
         </nav>
 
-        <form action="/api/auth/logout" method="POST" class="absolute bottom-3 left-3 right-3">
-        <button
-            type="submit"
-            class="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        <form
+            action="/api/auth/logout"
+            method="POST"
+            class="shrink-0 border-t border-white/10 p-3"
         >
-            <span class="text-base">🚪</span>
-            Salir
-        </button>
+            <button
+                type="submit"
+                class="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+                <span class="text-base">🚪</span>
+                Salir
+            </button>
         </form>
     </aside>
 

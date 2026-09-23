@@ -46,3 +46,27 @@
         @apply font-display tracking-tight;
     }
 }
+
+/* Scrollbar del Sidebar */
+.sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #fbbf24 #141414;
+}
+
+/* Chrome, Edge, Safari */
+.sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+    background: #141414;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background: #fbbf24;
+    border-radius: 9999px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: #f59e0b;
+}
