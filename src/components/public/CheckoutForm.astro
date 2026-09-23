@@ -5,6 +5,7 @@
 // acá mismo, en su frontmatter.
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import { supabasePublic } from "@/lib/supabase/public";
+import { getActivePromotionsToday } from "@/lib/promotions/getActivePromotionsToday";
 
 const { data: zones, error } = await supabasePublic
   .from("delivery_zones")
@@ -15,6 +16,7 @@ const { data: zones, error } = await supabasePublic
 if (error) console.error("Error cargando zonas de envío:", error.message);
 
 const deliveryZones = zones ?? [];
+const activePromotions = await getActivePromotionsToday(supabasePublic);
 ---
 
 <PublicLayout title="Finalizar pedido — Bechis" showBack backHref="/carrito">
@@ -98,6 +100,10 @@ const deliveryZones = zones ?? [];
         <span>Subtotal</span>
         <span data-role="subtotal">$0</span>
       </div>
+      <div data-role="discount-row" style="display:none" class="justify-between py-1 text-sm text-success">
+        <span data-role="discount-label">Descuento</span>
+        <span data-role="discount-amount">-$0</span>
+      </div>
       <div class="flex justify-between py-1 text-sm text-text-muted">
         <span>Envío</span>
         <span data-role="delivery-line">Retiro en el local — $0</span>
@@ -119,11 +125,16 @@ const deliveryZones = zones ?? [];
     </button>
   </div>
 
-  <script define:vars={{ zones: deliveryZones }}>
+  <script define:vars={{ zones: deliveryZones, promotions: activePromotions }}>
     window.__BECHIS_DELIVERY_ZONES__ = zones;
+    window.__BECHIS_ACTIVE_PROMOTIONS__ = promotions;
   </script>
   <script>
     import { attachCheckoutForm } from "@/components/public/CheckoutForm";
-    attachCheckoutForm("checkout-root", window.__BECHIS_DELIVERY_ZONES__ ?? []);
+    attachCheckoutForm(
+      "checkout-root",
+      window.__BECHIS_DELIVERY_ZONES__ ?? [],
+      window.__BECHIS_ACTIVE_PROMOTIONS__ ?? []
+    );
   </script>
 </PublicLayout>

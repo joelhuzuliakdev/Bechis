@@ -12,6 +12,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { fetchProductWithIngredients } from "@/lib/pricing/fetchProductWithIngredients";
 import { calculateProductPrice, calculateOrderTotal } from "@/lib/pricing/calculatePrice";
 import { createOrderSchema } from "@/lib/validators/orderSchema";
+import { getActivePromotionsToday } from "@/lib/promotions/getActivePromotionsToday";
+import { computeTotalDiscount } from "@/lib/promotions/calculatePromotionDiscount";
 
 export const POST: APIRoute = async ({ request }) => {
   // Usamos el cliente admin (service role) SOLO para las escrituras de
@@ -81,7 +83,14 @@ export const POST: APIRoute = async ({ request }) => {
     deliveryCost = zone.price;
   }
 
-  const discount = 0;
+  // Promociones activas hoy: se calculan acá, con los mismos ids de
+  // producto ya validados arriba — nunca se confía en un descuento
+  // que venga del checkout.
+  const activePromotions = await getActivePromotionsToday(supabasePublic);
+  const discount = computeTotalDiscount(
+    resolvedItems.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
+    activePromotions
+  );
   const total = calculateOrderTotal({ subtotal, discount, deliveryCost });
 
   const { data: order, error: orderError } = await supabaseAdmin
@@ -102,6 +111,8 @@ export const POST: APIRoute = async ({ request }) => {
     .single();
 
   if (orderError || !order) {
+    // TEMPORAL: log completo para diagnosticar el 500. Sacar después.
+    console.error("[DEBUG] Error creando pedido (completo):", JSON.stringify(orderError, null, 2));
     return json({ error: "No se pudo crear el pedido", debug: orderError }, 500);
   }
 

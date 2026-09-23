@@ -17,6 +17,7 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
       orderNumber: number;
       subtotal: number;
       deliveryCost: number;
+      discount: number;
       total: number;
       customerName: string;
       deliveryType: "retiro" | "envio";
@@ -55,6 +56,7 @@ import PublicLayout from "@/layouts/PublicLayout.astro";
           <h2 class="mb-2 text-sm font-semibold text-text">Detalle</h2>
           ${itemsHtml}
           <div class="mt-2 flex justify-between border-t border-surface-line pt-2 text-sm text-text-muted"><span>Subtotal</span><span>${money(stored.subtotal)}</span></div>
+          ${stored.discount > 0 ? `<div class="flex justify-between text-sm text-success"><span>Descuento</span><span>-${money(stored.discount)}</span></div>` : ""}
           <div class="flex justify-between text-sm text-text-muted"><span>Envío</span><span>${stored.deliveryType === "envio" ? money(stored.deliveryCost) : "Retiro en el local"}</span></div>
           <div class="mt-1 flex justify-between border-t border-surface-line pt-2 text-base font-bold text-text"><span>Total</span><span>${money(stored.total)}</span></div>
         `;
