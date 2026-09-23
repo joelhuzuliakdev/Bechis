@@ -1,0 +1,74 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+
+const profile = Astro.locals.profile!;
+---
+
+<AdminLayout title="Nuevo empleado" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
+  <h2 class="mb-5 text-lg font-semibold text-gray-900">Nuevo empleado</h2>
+
+  <div class="mx-auto max-w-md rounded-lg border border-gray-200 bg-white p-5">
+    <label class="mb-1 block text-xs font-medium text-gray-500">Nombre y apellido</label>
+    <input id="fullName" type="text" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" placeholder="Ej: Ana Gómez" />
+
+    <label class="mb-1 block text-xs font-medium text-gray-500">Email</label>
+    <input id="email" type="email" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" placeholder="ana@bechis.com" />
+
+    <label class="mb-1 block text-xs font-medium text-gray-500">Contraseña</label>
+    <input id="password" type="password" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" placeholder="Al menos 6 caracteres" />
+
+    <label class="mb-1 block text-xs font-medium text-gray-500">Rol</label>
+    <select id="role" class="mb-4 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+      <option value="empleado">Empleado</option>
+      <option value="admin">Admin</option>
+    </select>
+
+    <p id="form-error" class="mb-3 text-sm text-red-600"></p>
+
+    <div class="flex gap-2">
+      <a href="/admin/equipo" class="flex-1 rounded-md border border-gray-200 py-2.5 text-center text-sm font-semibold text-gray-600">
+        Cancelar
+      </a>
+      <button id="submit" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink">
+        Crear cuenta
+      </button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("submit")?.addEventListener("click", async () => {
+      const errorEl = document.getElementById("form-error")!;
+      errorEl.textContent = "";
+
+      const fullName = (document.getElementById("fullName") as HTMLInputElement).value.trim();
+      const email = (document.getElementById("email") as HTMLInputElement).value.trim();
+      const password = (document.getElementById("password") as HTMLInputElement).value;
+      const role = (document.getElementById("role") as HTMLSelectElement).value;
+
+      if (fullName.length < 2 || !email || password.length < 6) {
+        errorEl.textContent = "Completá nombre, un email válido y una contraseña de al menos 6 caracteres.";
+        return;
+      }
+
+      const btn = document.getElementById("submit") as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = "Creando...";
+
+      const res = await fetch("/api/team/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password, role }),
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        errorEl.textContent = result.error ?? "No se pudo crear la cuenta.";
+        btn.disabled = false;
+        btn.textContent = "Crear cuenta";
+        return;
+      }
+
+      window.location.href = "/admin/equipo";
+    });
+  </script>
+</AdminLayout>

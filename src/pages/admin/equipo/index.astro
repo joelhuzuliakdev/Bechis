@@ -1,0 +1,120 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { fetchTeam } from "@/lib/team/fetchTeam";
+
+const profile = Astro.locals.profile!;
+const team = await fetchTeam(Astro.cookies);
+
+const ROLE_LABELS: Record<string, string> = { admin: "Admin", empleado: "Empleado" };
+---
+
+<AdminLayout title="Equipo" role={profile.role} userName={profile.fullName || profile.email || "Admin"}>
+  <div class="mb-5 flex items-center justify-between">
+    <p class="text-sm text-gray-500">Cuentas del equipo — admin y empleados.</p>
+    <a href="/admin/equipo/nuevo" class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-bold text-ink">
+      + Nuevo empleado
+    </a>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+        <tr>
+          <th class="px-4 py-3">Nombre</th>
+          <th class="px-4 py-3">Email</th>
+          <th class="px-4 py-3">Rol</th>
+          <th class="px-4 py-3">Estado</th>
+          <th class="px-4 py-3">Creado</th>
+          <th class="px-4 py-3 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {
+          team.map((member) => (
+            <tr data-member-id={member.id}>
+              <td class="px-4 py-3 font-medium text-gray-900">
+                {member.fullName || "—"}
+                {member.id === profile.id && <span class="ml-1.5 text-xs text-gray-400">(vos)</span>}
+              </td>
+              <td class="px-4 py-3 text-gray-500">{member.email ?? "—"}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {ROLE_LABELS[member.role] ?? member.role}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <button
+                  type="button"
+                  data-action="toggle-active"
+                  data-active={member.active ? "true" : "false"}
+                  disabled={member.id === profile.id}
+                  class:list={[
+                    "rounded-full px-2.5 py-1 text-xs font-bold",
+                    member.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500",
+                    member.id === profile.id && "cursor-not-allowed opacity-60",
+                  ]}
+                >
+                  {member.active ? "Activo" : "Inactivo"}
+                </button>
+              </td>
+              <td class="px-4 py-3 text-gray-500">
+                {new Date(member.createdAt).toLocaleDateString("es-AR")}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  data-action="delete"
+                  disabled={member.id === profile.id}
+                  class:list={[
+                    "rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600",
+                    member.id === profile.id && "cursor-not-allowed opacity-40",
+                  ]}
+                >
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    document.querySelectorAll<HTMLElement>("[data-member-id]").forEach((row) => {
+      const id = row.dataset.memberId!;
+
+      row.querySelector("[data-action='toggle-active']")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        if (btn.disabled) return;
+        const nextActive = btn.dataset.active !== "true";
+
+        const res = await fetch(`/api/team/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: nextActive }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(result.error ?? "No se pudo actualizar.");
+          return;
+        }
+        location.reload();
+      });
+
+      row.querySelector("[data-action='delete']")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        if (btn.disabled) return;
+        if (!confirm("¿Eliminar esta cuenta? Esta acción no se puede deshacer.")) return;
+
+        const res = await fetch(`/api/team/${id}`, { method: "DELETE" });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(result.error ?? "No se pudo eliminar.");
+          return;
+        }
+        location.reload();
+      });
+    });
+  </script>
+</AdminLayout>
