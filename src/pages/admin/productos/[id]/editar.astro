@@ -1,0 +1,26 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProductForm from "@/components/admin/ProductForm.astro";
+import EmptyState from "@/components/ui/EmptyState.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getProductAdminById, listCategories, listGlobalIngredients } from "@/lib/catalog/fetchCatalogAdmin";
+
+const profile = Astro.locals.profile!;
+const { id } = Astro.params;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const [product, categories, ingredients] = await Promise.all([
+    getProductAdminById(supabase, id!),
+    listCategories(supabase),
+    listGlobalIngredients(supabase),
+]);
+---
+
+<AdminLayout title="Editar producto" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <h2 class="mb-5 text-lg font-semibold text-gray-900">Editar producto</h2>
+    {product ? (
+        <ProductForm mode="edit" product={product} categories={categories} ingredients={ingredients} />
+    ) : (
+        <EmptyState message="No encontramos ese producto." />
+    )}
+</AdminLayout>

@@ -1,0 +1,268 @@
+---
+import type { AdminProductDetail, CategoryOption, GlobalIngredient } from "@/lib/catalog/fetchCatalogAdmin";
+
+export interface Props {
+    mode: "create" | "edit";
+    product: AdminProductDetail | null;
+    categories: CategoryOption[];
+    ingredients: GlobalIngredient[];
+}
+
+const { mode, product, categories, ingredients } = Astro.props;
+
+function configFor(ingredientId: string) {
+    return product?.ingredients.find((i) => i.ingredientId === ingredientId) ?? null;
+}
+---
+
+<div
+    id="product-form-root"
+    data-mode={mode}
+    data-product-id={product?.id ?? ""}
+    data-current-image={product?.imageUrl ?? ""}
+    class="mx-auto max-w-2xl"
+    >
+    <div class="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+        <label class="mb-1 block text-xs font-medium text-gray-500">Imagen</label>
+        <div class="mb-3 flex items-center gap-3">
+        <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md bg-gray-100 text-2xl">
+            {product?.imageUrl ? <img data-role="preview" src={product.imageUrl} class="h-full w-full object-cover" /> : <span data-role="preview-placeholder">🍔</span>}
+        </div>
+        <input data-role="image-input" type="file" accept="image/*" class="text-sm" />
+        </div>
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Nombre</label>
+        <input name="name" type="text" value={product?.name ?? ""} placeholder="Ej: Hamburguesa Bechis" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Slug (URL, sin espacios)</label>
+        <input name="slug" type="text" value={product?.slug ?? ""} placeholder="hamburguesa-bechis" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Descripción</label>
+        <textarea name="description" rows="2" class="mb-3 w-full resize-none rounded-md border border-gray-200 px-3 py-2 text-sm">{product?.description ?? ""}</textarea>
+
+        <label class="mb-1 block text-xs font-medium text-gray-500">Categoría</label>
+        <select name="categoryId" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm">
+        {categories.map((c) => (
+            <option value={c.id} selected={product?.categoryId === c.id}>{c.name}</option>
+        ))}
+        </select>
+
+        <div class="mb-3 grid grid-cols-3 gap-2">
+        <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Precio</label>
+            <input name="price" type="number" min="0" step="1" value={product?.price ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Stock</label>
+            <input name="stock" type="number" min="0" step="1" value={product?.stock ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Stock mínimo</label>
+            <input name="minStock" type="number" min="0" step="1" value={product?.minStock ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+        </div>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input name="active" type="checkbox" checked={product?.active ?? true} class="accent-bechis-yellow" />
+        Producto activo (visible en el catálogo)
+        </label>
+    </div>
+
+    <div class="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+        <h3 class="mb-1 text-sm font-semibold text-gray-900">Ingredientes</h3>
+        <p class="mb-3 text-xs text-gray-400">
+        Incluido = viene de fábrica. Removible = el cliente lo puede sacar (nunca resta precio). Extra = se puede
+        agregar pagando un adicional.
+        </p>
+
+        {ingredients.length === 0 && <p class="text-xs text-gray-400">No hay ingredientes cargados todavía.</p>}
+
+        <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+            <thead class="text-gray-400">
+            <tr>
+                <th class="py-1.5 pr-2">Ingrediente</th>
+                <th class="px-2 py-1.5 text-center">Incluido</th>
+                <th class="px-2 py-1.5 text-center">Removible</th>
+                <th class="px-2 py-1.5 text-center">Extra</th>
+                <th class="py-1.5 pl-2">Precio extra</th>
+            </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+            {ingredients.map((ing) => {
+                const cfg = configFor(ing.id);
+                return (
+                <tr data-ingredient-row data-ingredient-id={ing.id} class={ing.active ? "" : "opacity-50"}>
+                    <td class="py-2 pr-2 text-gray-700">
+                    {ing.name}
+                    {!ing.active && <span class="ml-1 text-gray-400">(inactivo)</span>}
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                    <input data-role="included" type="checkbox" checked={cfg?.isIncluded ?? false} class="accent-bechis-yellow" />
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                    <input data-role="removable" type="checkbox" checked={cfg?.isRemovable ?? true} class="accent-bechis-yellow" />
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                    <input data-role="extra" type="checkbox" checked={cfg?.isAddableExtra ?? false} class="accent-bechis-yellow" />
+                    </td>
+                    <td class="py-2 pl-2">
+                    <input
+                        data-role="price-override"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder={`def. ${ing.extraPrice}`}
+                        value={cfg?.priceOverride ?? ""}
+                        class="w-24 rounded-md border border-gray-200 px-2 py-1"
+                    />
+                    </td>
+                </tr>
+                );
+            })}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <p data-role="form-error" class="mb-3 text-sm text-danger"></p>
+
+    <div class="flex gap-2">
+        <a href="/admin/productos" class="flex-1 rounded-md border border-gray-200 py-2.5 text-center text-sm font-semibold text-gray-600">Cancelar</a>
+        <button data-role="submit" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink">
+        {mode === "create" ? "Crear producto" : "Guardar cambios"}
+        </button>
+    </div>
+</div>
+
+<script>
+    import { supabaseBrowser } from "@/lib/supabase/client";
+
+    const root = document.getElementById("product-form-root")!;
+    const mode = root.dataset.mode as "create" | "edit";
+    const productId = root.dataset.productId;
+    let currentImageUrl = root.dataset.currentImage || null;
+
+    const imageInput = root.querySelector<HTMLInputElement>("[data-role='image-input']");
+    const preview = root.querySelector<HTMLImageElement>("[data-role='preview']");
+    let selectedFile: File | null = null;
+
+    imageInput?.addEventListener("change", () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        selectedFile = file;
+        const url = URL.createObjectURL(file);
+        if (preview) {
+        preview.src = url;
+        } else {
+        const container = imageInput.parentElement?.querySelector("div");
+        if (container) container.innerHTML = `<img src="${url}" class="h-full w-full object-cover" />`;
+        }
+    });
+
+    function slugify(text: string): string {
+        return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+
+    let slugTouched = !!productId;
+    const nameInput = root.querySelector<HTMLInputElement>("[name='name']");
+    const slugInput = root.querySelector<HTMLInputElement>("[name='slug']");
+    slugInput?.addEventListener("input", () => (slugTouched = true));
+    nameInput?.addEventListener("input", () => {
+        if (!slugTouched && slugInput) slugInput.value = slugify(nameInput.value);
+    });
+
+    root.querySelector("[data-role='submit']")?.addEventListener("click", async () => {
+        const errorEl = root.querySelector<HTMLElement>("[data-role='form-error']")!;
+        errorEl.textContent = "";
+        const submitBtn = root.querySelector<HTMLButtonElement>("[data-role='submit']")!;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Guardando...";
+
+        try {
+        // 1. Subir imagen nueva, si eligieron una.
+        let imageUrl = currentImageUrl;
+        if (selectedFile) {
+            const path = `${Date.now()}-${selectedFile.name.replace(/\s+/g, "-")}`;
+            const { error: uploadError } = await supabaseBrowser.storage
+            .from("product-images")
+            .upload(path, selectedFile, { upsert: true });
+
+            if (uploadError) {
+            errorEl.textContent = `No se pudo subir la imagen: ${uploadError.message}`;
+            submitBtn.disabled = false;
+            submitBtn.textContent = mode === "create" ? "Crear producto" : "Guardar cambios";
+            return;
+            }
+            imageUrl = supabaseBrowser.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+        }
+
+        // 2. Armar la configuración de ingredientes (solo los que
+        // tienen algo relevante marcado; el resto no se manda).
+        const ingredientRows = Array.from(root.querySelectorAll<HTMLElement>("[data-ingredient-row]"))
+            .map((row) => {
+            const ingredientId = row.dataset.ingredientId!;
+            const isIncluded = row.querySelector<HTMLInputElement>("[data-role='included']")!.checked;
+            const isRemovable = row.querySelector<HTMLInputElement>("[data-role='removable']")!.checked;
+            const isAddableExtra = row.querySelector<HTMLInputElement>("[data-role='extra']")!.checked;
+            const priceRaw = row.querySelector<HTMLInputElement>("[data-role='price-override']")!.value;
+            return {
+                ingredientId,
+                isIncluded,
+                isRemovable,
+                isAddableExtra,
+                priceOverride: priceRaw ? Number(priceRaw) : null,
+            };
+            })
+            .filter((r) => r.isIncluded || r.isAddableExtra);
+
+        const payload = {
+            categoryId: (root.querySelector("[name='categoryId']") as HTMLSelectElement).value,
+            name: (root.querySelector("[name='name']") as HTMLInputElement).value.trim(),
+            slug: (root.querySelector("[name='slug']") as HTMLInputElement).value.trim(),
+            description: (root.querySelector("[name='description']") as HTMLTextAreaElement).value.trim() || undefined,
+            price: Number((root.querySelector("[name='price']") as HTMLInputElement).value || 0),
+            imageUrl,
+            stock: Number((root.querySelector("[name='stock']") as HTMLInputElement).value || 0),
+            minStock: Number((root.querySelector("[name='minStock']") as HTMLInputElement).value || 0),
+            active: (root.querySelector("[name='active']") as HTMLInputElement).checked,
+            ingredients: ingredientRows,
+        };
+
+        if (payload.name.length < 2 || !payload.slug) {
+            errorEl.textContent = "Completá al menos el nombre y el slug.";
+            submitBtn.disabled = false;
+            submitBtn.textContent = mode === "create" ? "Crear producto" : "Guardar cambios";
+            return;
+        }
+
+        const url = mode === "create" ? "/api/products/create" : `/api/products/${productId}`;
+        const method = mode === "create" ? "POST" : "PATCH";
+
+        const res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const result = await res.json().catch(() => ({}));
+            errorEl.textContent = result.error ?? "No se pudo guardar el producto.";
+            submitBtn.disabled = false;
+            submitBtn.textContent = mode === "create" ? "Crear producto" : "Guardar cambios";
+            return;
+        }
+
+        window.location.href = "/admin/productos";
+        } catch (err) {
+        errorEl.textContent = "Error inesperado. Probá de nuevo.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = mode === "create" ? "Crear producto" : "Guardar cambios";
+        }
+    });
+</script>

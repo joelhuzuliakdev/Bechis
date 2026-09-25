@@ -1,0 +1,15 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import ProductForm from "@/components/admin/ProductForm.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listCategories, listGlobalIngredients } from "@/lib/catalog/fetchCatalogAdmin";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+const [categories, ingredients] = await Promise.all([listCategories(supabase), listGlobalIngredients(supabase)]);
+---
+
+<AdminLayout title="Nuevo producto" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <h2 class="mb-5 text-lg font-semibold text-gray-900">Nuevo producto</h2>
+    <ProductForm mode="create" product={null} categories={categories} ingredients={ingredients} />
+</AdminLayout>
