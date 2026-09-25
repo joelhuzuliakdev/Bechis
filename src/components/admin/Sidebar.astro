@@ -19,10 +19,11 @@ interface NavItem {
     href: string;
     icon: string;
     roles: UserRole[];
+    exact?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-    { label: "Inicio", href: "/admin", icon: "🏠", roles: ["admin"] },
+    { label: "Inicio", href: "/admin", icon: "🏠", roles: ["admin"], exact: true },
     { label: "Productos", href: "/admin/productos", icon: "🍔", roles: ["admin", "empleado"] },
     { label: "Stock", href: "/admin/stock", icon: "📦", roles: ["admin", "empleado"] },
     { label: "Ventas", href: "/admin/ventas", icon: "💳", roles: ["admin"] },
@@ -61,9 +62,9 @@ const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
         <nav class="sidebar-scroll min-h-0 flex-1 overflow-y-auto p-3">
             {
                 visibleItems.map((item) => {
-                    const isActive =
-                        currentPath === item.href ||
-                        currentPath.startsWith(item.href + "/");
+                    const isActive = item.exact
+                        ? currentPath === item.href
+                        : currentPath === item.href || currentPath.startsWith(item.href + "/");
 
                     return (
                         <a
