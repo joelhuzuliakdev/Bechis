@@ -1,0 +1,159 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listProductStock, listIngredientStock } from "@/lib/stock/fetchStock";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+const [products, ingredients] = await Promise.all([listProductStock(supabase), listIngredientStock(supabase)]);
+---
+
+<AdminLayout title="Stock" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <div class="mb-5 flex items-center justify-between">
+        <p class="text-sm text-gray-500">Inventario de productos e ingredientes.</p>
+        <a href="/admin/stock/movimientos" class="text-sm font-medium text-gray-500 underline">Ver historial de movimientos</a>
+    </div>
+
+    <h3 class="mb-2 text-sm font-semibold text-gray-900">Productos</h3>
+    <div id="stock-table-producto" class="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white" data-target="producto"></div>
+
+    <h3 class="mb-2 text-sm font-semibold text-gray-900">Ingredientes</h3>
+    <div id="stock-table-ingrediente" class="overflow-hidden rounded-lg border border-gray-200 bg-white" data-target="ingrediente"></div>
+
+    <script type="application/json" id="stock-data" set:html={JSON.stringify({ products, ingredients })} />
+
+    <script>
+        interface StockItem {
+        id: string;
+        name: string;
+        stock: number;
+        minStock: number;
+        }
+
+        const data = JSON.parse(document.getElementById("stock-data")?.textContent ?? "{}");
+
+        function renderTable(containerId: string, target: "producto" | "ingrediente", items: StockItem[]) {
+        const container = document.getElementById(containerId)!;
+
+        if (items.length === 0) {
+            container.innerHTML = `<p class="px-4 py-8 text-center text-sm text-gray-400">No hay nada cargado todavía.</p>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="w-full text-left text-sm">
+            <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                <th class="px-4 py-3">Nombre</th>
+                <th class="px-4 py-3 text-right">Stock actual</th>
+                <th class="px-4 py-3 text-right">Stock mínimo</th>
+                <th class="px-4 py-3">Estado</th>
+                <th class="px-4 py-3 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                ${items
+                .map(
+                    (item) => `
+                <tr data-item-id="${item.id}">
+                    <td class="px-4 py-3 font-medium text-gray-900">${item.name}</td>
+                    <td class="px-4 py-3 text-right" data-role="stock-value">${item.stock}</td>
+                    <td class="px-4 py-3 text-right text-gray-500">${item.minStock}</td>
+                    <td class="px-4 py-3" data-role="status-badge">
+                    ${
+                        item.stock <= item.minStock
+                        ? `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">⚠️ Bajo stock</span>`
+                        : `<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Disponible</span>`
+                    }
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                    <button data-action="ingreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">+ Ingreso</button>
+                    <button data-action="egreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">- Egreso</button>
+                    <button data-action="correccion" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Corregir</button>
+                    </td>
+                </tr>
+                `
+                )
+                .join("")}
+            </tbody>
+            </table>
+        `;
+
+        container.querySelectorAll<HTMLElement>("[data-item-id]").forEach((row) => {
+            const itemId = row.dataset.itemId!;
+            const item = items.find((i) => i.id === itemId)!;
+
+            row.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((btn) => {
+            btn.addEventListener("click", () => openMovementModal(target, item, btn.dataset.action as any, row));
+            });
+        });
+        }
+
+        function openMovementModal(
+        target: "producto" | "ingrediente",
+        item: StockItem,
+        type: "ingreso" | "egreso" | "correccion",
+        row: HTMLElement
+        ) {
+        const titles = { ingreso: "Registrar ingreso", egreso: "Registrar egreso", correccion: "Corregir stock" };
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+        overlay.innerHTML = `
+            <div class="w-full max-w-xs rounded-lg bg-white p-5 shadow-xl">
+            <h3 class="mb-1 text-base font-bold text-gray-900">${titles[type]}</h3>
+            <p class="mb-3 text-sm text-gray-500">${item.name} — stock actual: ${item.stock}</p>
+            <label class="mb-1 block text-xs font-medium text-gray-500">${type === "correccion" ? "Nuevo stock" : "Cantidad"}</label>
+            <input data-role="qty" type="number" min="0" step="1" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+            <label class="mb-1 block text-xs font-medium text-gray-500">Motivo (opcional)</label>
+            <input data-role="reason" type="text" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+            <p data-role="error" class="mb-2 text-xs text-red-600"></p>
+            <div class="flex gap-2">
+                <button data-role="cancel" class="flex-1 rounded-md border border-gray-200 py-2 text-sm font-semibold text-gray-600">Cancelar</button>
+                <button data-role="confirm" class="flex-1 rounded-md bg-bechis-yellow py-2 text-sm font-bold text-ink">Confirmar</button>
+            </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.querySelector("[data-role='cancel']")?.addEventListener("click", () => overlay.remove());
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        overlay.querySelector("[data-role='confirm']")?.addEventListener("click", async () => {
+            const errorEl = overlay.querySelector<HTMLElement>("[data-role='error']")!;
+            const qty = Number(overlay.querySelector<HTMLInputElement>("[data-role='qty']")!.value || -1);
+            const reason = overlay.querySelector<HTMLInputElement>("[data-role='reason']")!.value.trim();
+
+            if (qty < 0) {
+            errorEl.textContent = "Ingresá un valor válido.";
+            return;
+            }
+
+            const res = await fetch("/api/stock/movement", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target, itemId: item.id, type, quantity: qty, reason: reason || undefined }),
+            });
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+            errorEl.textContent = result.error ?? "No se pudo registrar el movimiento.";
+            return;
+            }
+
+            item.stock = result.newStock;
+            row.querySelector("[data-role='stock-value']")!.textContent = String(item.stock);
+            row.querySelector("[data-role='status-badge']")!.innerHTML =
+            item.stock <= item.minStock
+                ? `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">⚠️ Bajo stock</span>`
+                : `<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Disponible</span>`;
+
+            overlay.remove();
+        });
+        }
+
+        renderTable("stock-table-producto", "producto", data.products ?? []);
+        renderTable("stock-table-ingrediente", "ingrediente", data.ingredients ?? []);
+    </script>
+</AdminLayout>

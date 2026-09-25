@@ -1,0 +1,106 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchStockMovements } from "@/lib/stock/fetchStock";
+import { getPresetRange, parseCustomRange, toDateInputValue, type DateRangePreset } from "@/lib/format/dateRanges";
+
+const profile = Astro.locals.profile!;
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const url = Astro.url;
+const presetParam = (url.searchParams.get("range") as DateRangePreset) || "semana";
+const fromParam = url.searchParams.get("from") ?? "";
+const toParam = url.searchParams.get("to") ?? "";
+
+const range =
+    presetParam === "personalizado" && fromParam && toParam
+        ? parseCustomRange(fromParam, toParam)
+        : getPresetRange(presetParam);
+
+const movements = await fetchStockMovements(supabase, range.from, range.to);
+
+const TYPE_LABELS: Record<string, string> = {
+    ingreso: "Ingreso",
+    egreso: "Egreso",
+    correccion: "Corrección",
+    venta: "Venta",
+};
+const TYPE_COLORS: Record<string, string> = {
+    ingreso: "text-green-700",
+    egreso: "text-red-600",
+    correccion: "text-amber-600",
+    venta: "text-gray-500",
+};
+
+const filters: { value: DateRangePreset; label: string }[] = [
+    { value: "hoy", label: "Hoy" },
+    { value: "semana", label: "Esta semana" },
+    { value: "mes", label: "Este mes" },
+];
+---
+
+<AdminLayout title="Movimientos de stock" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <div class="mb-5">
+        <a href="/admin/stock" class="text-sm font-medium text-gray-500 underline">← Volver a Stock</a>
+    </div>
+
+    <div class="mb-5 flex flex-wrap items-center gap-2">
+        {
+        filters.map((f) => (
+            <a
+            href={`?range=${f.value}`}
+            class:list={[
+                "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+                presetParam === f.value ? "bg-ink text-white" : "bg-white text-gray-600 hover:bg-gray-100",
+            ]}
+            >
+            {f.label}
+            </a>
+        ))
+        }
+        <form method="GET" class="flex items-center gap-1.5 rounded-full bg-white px-2 py-1">
+        <input type="hidden" name="range" value="personalizado" />
+        <input type="date" name="from" value={presetParam === "personalizado" ? fromParam : toDateInputValue(range.from)} class="rounded-md border-none bg-transparent px-1 py-1 text-sm text-gray-700 outline-none" />
+        <span class="text-gray-400">–</span>
+        <input type="date" name="to" value={presetParam === "personalizado" ? toParam : toDateInputValue(range.to)} class="rounded-md border-none bg-transparent px-1 py-1 text-sm text-gray-700 outline-none" />
+        <button type="submit" class:list={["rounded-full px-3 py-1 text-sm font-medium", presetParam === "personalizado" ? "bg-ink text-white" : "bg-gray-100 text-gray-600"]}>
+            Aplicar
+        </button>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table class="w-full text-left text-sm">
+        <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+            <th class="px-4 py-3">Fecha</th>
+            <th class="px-4 py-3">Ítem</th>
+            <th class="px-4 py-3">Tipo</th>
+            <th class="px-4 py-3 text-right">Cantidad</th>
+            <th class="px-4 py-3">Motivo</th>
+            <th class="px-4 py-3">Usuario</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {
+            movements.length === 0 ? (
+                <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400">No hay movimientos en este período.</td></tr>
+            ) : (
+                movements.map((m) => (
+                <tr>
+                    <td class="whitespace-nowrap px-4 py-3 text-gray-500">
+                    {new Date(m.createdAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td class="px-4 py-3 text-gray-900">{m.itemName}</td>
+                    <td class={`px-4 py-3 font-medium ${TYPE_COLORS[m.type]}`}>{TYPE_LABELS[m.type]}</td>
+                    <td class="px-4 py-3 text-right text-gray-700">{m.quantity}</td>
+                    <td class="px-4 py-3 text-gray-500">{m.reason ?? "—"}</td>
+                    <td class="px-4 py-3 text-gray-500">{m.userName ?? "—"}</td>
+                </tr>
+                ))
+            )
+            }
+        </tbody>
+        </table>
+    </div>
+</AdminLayout>
