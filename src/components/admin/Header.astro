@@ -1,10 +1,12 @@
 ---
 export interface Props {
     title: string;
-    userName: string;
+    userName?: string;
 }
 
 const { title, userName } = Astro.props;
+const displayName = userName?.trim() ? userName : "Usuario";
+const initial = displayName.charAt(0).toUpperCase();
 ---
 
 <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
@@ -21,9 +23,9 @@ const { title, userName } = Astro.props;
     </div>
 
     <div class="flex items-center gap-2 text-sm text-gray-500">
-        <span class="hidden sm:inline">{userName}</span>
+        <span class="hidden sm:inline">{displayName}</span>
         <span class="flex h-8 w-8 items-center justify-center rounded-full bg-bechis-yellow/20 text-xs font-bold text-bechis-yellow-dark">
-        {userName.charAt(0).toUpperCase()}
+        {initial}
         </span>
     </div>
 </header>

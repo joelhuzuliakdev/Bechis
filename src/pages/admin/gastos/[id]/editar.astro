@@ -1,0 +1,50 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchExpenseCategories } from "@/lib/expenses/fetchExpenses";
+import ExpenseForm from "@/components/admin/ExpenseForm.astro";
+
+const { id } = Astro.params;
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const [categories, { data: expenseRow, error }] = await Promise.all([
+    fetchExpenseCategories(supabase),
+    supabase
+        .from("expenses")
+        .select("id, category_id, description, amount, payment_method, receipt_url")
+        .eq("id", id)
+        .single(),
+]);
+
+if (error || !expenseRow) {
+    return Astro.redirect("/admin/gastos");
+}
+
+const expense = {
+    id: expenseRow.id,
+    categoryId: expenseRow.category_id,
+    description: expenseRow.description,
+    amount: Number(expenseRow.amount),
+    paymentMethod: expenseRow.payment_method,
+    receiptUrl: expenseRow.receipt_url,
+};
+---
+
+<AdminLayout title="Editar gasto" role={role} userName={userName}>
+    <div class="mb-6">
+        <h1 class="text-brand text-2xl text-white">Editar gasto</h1>
+        <p class="text-sm text-text-muted">Modificá los datos del gasto.</p>
+    </div>
+
+    <ExpenseForm mode="editar" categories={categories} expense={expense} />
+</AdminLayout>
+
+<script>
+    import { mountExpenseForm } from "@/components/admin/ExpenseForm";
+    mountExpenseForm();
+</script>

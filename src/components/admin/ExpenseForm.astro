@@ -1,0 +1,157 @@
+---
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/format/paymentMethods";
+
+export interface ExpenseFormValues {
+    id?: string;
+    categoryId: string;
+    description: string;
+    amount: number;
+    paymentMethod: string;
+    receiptUrl: string | null;
+}
+
+export interface Props {
+    mode: "crear" | "editar";
+    categories: { id: string; name: string }[];
+    expense?: ExpenseFormValues;
+}
+
+const { mode, categories, expense } = Astro.props;
+---
+
+<form id="expense-form" data-mode={mode} data-expense-id={expense?.id ?? ""} class="max-w-xl space-y-5">
+    <div
+        id="expense-form-error"
+        class="hidden rounded-md border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-danger"
+    >
+    </div>
+
+    <div>
+        <label class="mb-1 block text-sm text-text-muted" for="category-id">Categoría</label>
+        <div class="flex gap-2">
+        <select
+            id="category-id"
+            name="categoryId"
+            required
+            class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        >
+            <option value="" disabled selected={!expense}>Elegí una categoría</option>
+            {
+            categories.map((c) => (
+                <option value={c.id} selected={c.id === expense?.categoryId}>
+                {c.name}
+                </option>
+            ))
+            }
+        </select>
+        <button
+            type="button"
+            id="toggle-new-category"
+            class="whitespace-nowrap rounded-md border border-surface-line px-3 py-2 text-sm text-text-muted hover:text-black"
+        >
+            + Nueva
+        </button>
+        </div>
+
+        <div id="new-category-box" class="mt-2 hidden gap-2 sm:flex">
+        <input
+            type="text"
+            id="new-category-name"
+            placeholder="Nombre de la categoría"
+            class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        />
+        <button
+            type="button"
+            id="save-new-category"
+            class="whitespace-nowrap rounded-md bg-bechis-yellow px-3 py-2 text-sm font-semibold text-ink hover:bg-bechis-yellow-dark"
+        >
+            Guardar
+        </button>
+        </div>
+    </div>
+
+    <div>
+        <label class="mb-1 block text-sm text-text-muted" for="description">Descripción</label>
+        <input
+        type="text"
+        id="description"
+        name="description"
+        required
+        value={expense?.description ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        />
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+        <label class="mb-1 block text-sm text-text-muted" for="amount">Monto</label>
+        <input
+            type="number"
+            id="amount"
+            name="amount"
+            step="0.01"
+            min="0"
+            required
+            value={expense?.amount ?? ""}
+            class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        />
+        </div>
+        <div>
+        <label class="mb-1 block text-sm text-text-muted" for="payment-method">Método de pago</label>
+        <select
+            id="payment-method"
+            name="paymentMethod"
+            required
+            class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        >
+            {
+            PAYMENT_METHOD_OPTIONS.map((m) => (
+                <option value={m.value} selected={m.value === expense?.paymentMethod}>
+                {m.label}
+                </option>
+            ))
+            }
+        </select>
+        </div>
+    </div>
+
+    <div>
+        <label class="mb-1 block text-sm text-text-muted" for="receipt-url">Comprobante (link, opcional)</label>
+        <input
+        type="url"
+        id="receipt-url"
+        name="receiptUrl"
+        placeholder="https://..."
+        value={expense?.receiptUrl ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+        />
+    </div>
+
+    <div class="flex items-center justify-between pt-2">
+        <div>
+        {
+            mode === "editar" && (
+            <button
+                type="button"
+                id="delete-expense"
+                data-delete-expense={expense?.id}
+                class="text-sm text-danger hover:underline"
+            >
+                Eliminar gasto
+            </button>
+            )
+        }
+        </div>
+        <div class="flex gap-3">
+        <a href="/admin/gastos" class="rounded-md px-4 py-2 text-sm text-text-muted hover:text-black">
+            Cancelar
+        </a>
+        <button
+            type="submit"
+            class="rounded-md bg-bechis-yellow px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+        >
+            {mode === "crear" ? "Guardar gasto" : "Guardar cambios"}
+        </button>
+        </div>
+    </div>
+</form>

@@ -2,7 +2,16 @@
 // necesitan el mismo tipo de filtro: hoy / ayer / semana / mes /
 // personalizado). Los rangos son inclusivos: [from, to].
 
-export type DateRangePreset = "hoy" | "ayer" | "semana" | "mes" | "personalizado";
+export type DateRangePreset =
+  | "hoy"
+  | "ayer"
+  | "semana"
+  | "semana_anterior"
+  | "mes"
+  | "mes_anterior"
+  | "ultimos_7"
+  | "ultimos_30"
+  | "personalizado";
 
 export interface DateRange {
   from: Date;
@@ -41,8 +50,36 @@ export function getPresetRange(preset: DateRangePreset, now: Date = new Date()):
       return { from: startOfDay(start), to: endOfDay(now) };
     }
 
+    case "semana_anterior": {
+      const start = new Date(now);
+      const day = start.getDay();
+      const diffToMonday = day === 0 ? 6 : day - 1;
+      start.setDate(start.getDate() - diffToMonday - 7); // lunes de la semana pasada
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6); // domingo de esa misma semana
+      return { from: startOfDay(start), to: endOfDay(end) };
+    }
+
     case "mes": {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: startOfDay(start), to: endOfDay(now) };
+    }
+
+    case "mes_anterior": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0); // último día del mes anterior
+      return { from: startOfDay(start), to: endOfDay(end) };
+    }
+
+    case "ultimos_7": {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6); // incluye hoy = 7 días en total
+      return { from: startOfDay(start), to: endOfDay(now) };
+    }
+
+    case "ultimos_30": {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 29);
       return { from: startOfDay(start), to: endOfDay(now) };
     }
 

@@ -1,0 +1,232 @@
+---
+// /admin/reportes — resumen del período elegido + gráfico de ventas de
+// los últimos 7 días + desglose por método de pago.
+//
+// El selector de período (Hoy/Ayer/Semana/.../Personalizado) filtra el
+// resumen y el desglose por método de pago. El gráfico de "últimos 7
+// días" es fijo (siempre muestra la semana corrida, independiente del
+// selector), tal como se pidió en el brief.
+
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+    getPresetRange,
+    parseCustomRange,
+    toDateInputValue,
+    type DateRangePreset,
+} from "@/lib/format/dateRanges";
+import { getReportSummary } from "@/lib/reports/fetchReportSummary";
+import { getPaymentBreakdown } from "@/lib/reports/fetchPaymentBreakdown";
+import { getSalesLast7Days } from "@/lib/reports/fetchLast7DaysSales";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+// El middleware ya protege /admin/* y deja el perfil cargado en
+// Astro.locals.profile — lo usamos para el header/sidebar del layout,
+// igual que en el resto de las páginas de admin.
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const PRESETS: { value: DateRangePreset; label: string }[] = [
+    { value: "hoy", label: "Hoy" },
+    { value: "ayer", label: "Ayer" },
+    { value: "semana", label: "Esta semana" },
+    { value: "semana_anterior", label: "Semana anterior" },
+    { value: "mes", label: "Este mes" },
+    { value: "mes_anterior", label: "Mes anterior" },
+    { value: "ultimos_7", label: "Últimos 7 días" },
+    { value: "ultimos_30", label: "Últimos 30 días" },
+];
+
+const rangoParam = Astro.url.searchParams.get("rango") as DateRangePreset | null;
+const desdeParam = Astro.url.searchParams.get("desde");
+const hastaParam = Astro.url.searchParams.get("hasta");
+
+const rangoValido =
+    rangoParam === "personalizado" || PRESETS.some((p) => p.value === rangoParam);
+const rango: DateRangePreset = rangoValido ? (rangoParam as DateRangePreset) : "ultimos_7";
+
+const { from, to } =
+    rango === "personalizado" && desdeParam && hastaParam
+        ? parseCustomRange(desdeParam, hastaParam)
+        : getPresetRange(rango === "personalizado" ? "ultimos_7" : rango);
+
+const [summary, breakdown, last7Days] = await Promise.all([
+    getReportSummary(supabase, from, to),
+    getPaymentBreakdown(supabase, from, to),
+    getSalesLast7Days(supabase),
+]);
+
+const currencyFormatter = new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+});
+
+function fmt(n: number): string {
+    return currencyFormatter.format(n);
+}
+
+const desdeValue = toDateInputValue(from);
+const hastaValue = toDateInputValue(to);
+const hayVentasEnPeriodo = breakdown.some((b) => b.count > 0);
+---
+
+<AdminLayout title="Reportes" role={role} userName={userName}>
+    <div class="mb-6">
+        <h1 class="text-brand text-2xl text-black">Reportes</h1>
+        <p class="text-sm text-text-muted">Ventas y métodos de pago por período.</p>
+    </div>
+
+    <!-- Selector de período -->
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+        {
+        PRESETS.map((p) => (
+            <a
+            href={`/admin/reportes?rango=${p.value}`}
+            class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                rango === p.value
+                ? "bg-bechis-yellow text-ink"
+                : "bg-surface text-text-muted hover:text-white"
+            }`}
+            >
+            {p.label}
+            </a>
+        ))
+        }
+        <a
+        href="#periodo-personalizado"
+        class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            rango === "personalizado"
+            ? "bg-bechis-yellow text-ink"
+            : "bg-surface text-text-muted hover:text-white"
+        }`}
+        >
+        Personalizado
+        </a>
+    </div>
+
+    <form
+        id="periodo-personalizado"
+        method="get"
+        class="mb-8 flex flex-wrap items-end gap-3 rounded-lg border border-surface-line bg-surface p-4"
+    >
+        <input type="hidden" name="rango" value="personalizado" />
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="desde">Desde</label>
+        <input
+            type="date"
+            id="desde"
+            name="desde"
+            value={desdeValue}
+            class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+        />
+        </div>
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="hasta">Hasta</label>
+        <input
+            type="date"
+            id="hasta"
+            name="hasta"
+            value={hastaValue}
+            class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+        />
+        </div>
+        <button
+        type="submit"
+        class="rounded-md bg-bechis-yellow px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+        >
+        Aplicar
+        </button>
+    </form>
+
+    <!-- Resumen del período -->
+    <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+        <p class="mb-1 text-sm text-text-muted">Monto total</p>
+        <p class="text-2xl font-bold text-white">{fmt(summary.totalMonto)}</p>
+        </div>
+        <div class="rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+        <p class="mb-1 text-sm text-text-muted">Cantidad de ventas</p>
+        <p class="text-2xl font-bold text-white">{summary.cantidadVentas}</p>
+        </div>
+        <div class="rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+        <p class="mb-1 text-sm text-text-muted">Ticket promedio</p>
+        <p class="text-2xl font-bold text-white">{fmt(summary.ticketPromedio)}</p>
+        </div>
+    </div>
+
+    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Gráfico de barras: últimos 7 días -->
+        <div class="rounded-lg border border-surface-line bg-surface p-6 shadow-subtle">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-brand text-lg text-white">Ventas — últimos 7 días</h2>
+            <div class="flex gap-1 rounded-md bg-ink p-1">
+            <button
+                type="button"
+                data-metric="total"
+                class="chart-toggle-btn rounded px-3 py-1 text-sm font-medium transition-colors"
+            >
+                Monto
+            </button>
+            <button
+                type="button"
+                data-metric="count"
+                class="chart-toggle-btn rounded px-3 py-1 text-sm font-medium transition-colors"
+            >
+                Cantidad
+            </button>
+            </div>
+        </div>
+        <div id="sales-chart-bars" class="flex h-48 items-end justify-between gap-2"></div>
+        <div id="sales-chart-tooltip" class="mt-3 hidden text-sm text-text-muted"></div>
+        </div>
+
+        <!-- Desglose por método de pago -->
+        <div class="rounded-lg border border-surface-line bg-surface p-6 shadow-subtle">
+        <h2 class="text-brand mb-4 text-lg text-white">Ventas por método de pago</h2>
+
+        {
+            !hayVentasEnPeriodo ? (
+            <p class="text-sm text-text-muted">No hay ventas registradas en este período.</p>
+            ) : (
+            <>
+                <div class="mb-6 flex h-3 w-full overflow-hidden rounded-full bg-ink">
+                {breakdown
+                    .filter((b) => b.percent > 0)
+                    .map((b) => (
+                    <div
+                        style={`width: ${b.percent}%; background-color: ${b.color};`}
+                        title={`${b.label}: ${b.percent.toFixed(1)}%`}
+                    />
+                    ))}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                {breakdown.map((b) => (
+                    <div class="rounded-md bg-ink p-4">
+                    <div class="mb-1 flex items-center gap-2">
+                        <span class="h-2.5 w-2.5 rounded-full" style={`background-color: ${b.color};`} />
+                        <span class="text-sm text-text-muted">{b.label}</span>
+                    </div>
+                    <p class="text-lg font-semibold text-white">{fmt(b.total)}</p>
+                    <p class="text-xs text-text-muted">
+                        {b.count} venta{b.count === 1 ? "" : "s"}
+                    </p>
+                    </div>
+                ))}
+                </div>
+            </>
+            )
+        }
+        </div>
+    </div>
+</AdminLayout>
+
+<script type="application/json" id="sales-chart-data" set:html={JSON.stringify(last7Days)} />
+
+<script>
+    import { mountSalesBarChart } from "@/components/admin/SalesBarChart";
+    mountSalesBarChart();
+</script>

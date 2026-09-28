@@ -1,0 +1,268 @@
+---
+// /admin/gastos — listado de gastos filtrado por período y categoría,
+// con total del período y alta/edición/eliminación.
+
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+    getPresetRange,
+    parseCustomRange,
+    toDateInputValue,
+    type DateRangePreset,
+} from "@/lib/format/dateRanges";
+import { fetchExpenses, fetchExpenseCategories } from "@/lib/expenses/fetchExpenses";
+import { formatPaymentMethod } from "@/lib/format/paymentMethods";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const PRESETS: { value: DateRangePreset; label: string }[] = [
+    { value: "hoy", label: "Hoy" },
+    { value: "ayer", label: "Ayer" },
+    { value: "semana", label: "Esta semana" },
+    { value: "semana_anterior", label: "Semana anterior" },
+    { value: "mes", label: "Este mes" },
+    { value: "mes_anterior", label: "Mes anterior" },
+    { value: "ultimos_7", label: "Últimos 7 días" },
+    { value: "ultimos_30", label: "Últimos 30 días" },
+];
+
+const rangoParam = Astro.url.searchParams.get("rango") as DateRangePreset | null;
+const desdeParam = Astro.url.searchParams.get("desde");
+const hastaParam = Astro.url.searchParams.get("hasta");
+const categoriaParam = Astro.url.searchParams.get("categoria") ?? "";
+
+const rangoValido =
+    rangoParam === "personalizado" || PRESETS.some((p) => p.value === rangoParam);
+const rango: DateRangePreset = rangoValido ? (rangoParam as DateRangePreset) : "mes";
+
+const { from, to } =
+    rango === "personalizado" && desdeParam && hastaParam
+        ? parseCustomRange(desdeParam, hastaParam)
+        : getPresetRange(rango === "personalizado" ? "mes" : rango);
+
+const [categories, expenses] = await Promise.all([
+    fetchExpenseCategories(supabase),
+    fetchExpenses(supabase, { from, to, categoryId: categoriaParam || undefined }),
+]);
+
+const totalGastado = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+const currencyFormatter = new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+});
+function fmt(n: number): string {
+    return currencyFormatter.format(n);
+}
+
+const dateFormatter = new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+});
+function fmtDate(iso: string): string {
+    return dateFormatter.format(new Date(iso));
+}
+
+const desdeValue = toDateInputValue(from);
+const hastaValue = toDateInputValue(to);
+---
+
+<AdminLayout title="Gastos" role={role} userName={userName}>
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+        <h1 class="text-brand text-2xl text-black">Gastos</h1>
+        <p class="text-sm text-text-muted">Registro de gastos del local.</p>
+        </div>
+        <a
+        href="/admin/gastos/nuevo"
+        class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+        >
+        + Nuevo gasto
+        </a>
+    </div>
+
+    <!-- Selector de período -->
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+        {
+        PRESETS.map((p) => (
+            <a
+            href={`/admin/gastos?rango=${p.value}${categoriaParam ? `&categoria=${categoriaParam}` : ""}`}
+            class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                rango === p.value
+                ? "bg-bechis-yellow text-ink"
+                : "bg-surface text-text-muted hover:text-white"
+            }`}
+            >
+            {p.label}
+            </a>
+        ))
+        }
+        <a
+        href="#periodo-personalizado"
+        class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            rango === "personalizado"
+            ? "bg-bechis-yellow text-ink"
+            : "bg-surface text-text-muted hover:text-white"
+        }`}
+        >
+        Personalizado
+        </a>
+    </div>
+
+    <form
+        id="periodo-personalizado"
+        method="get"
+        class="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-surface-line bg-surface p-4"
+    >
+        <input type="hidden" name="rango" value="personalizado" />
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="desde">Desde</label>
+        <input
+            type="date"
+            id="desde"
+            name="desde"
+            value={desdeValue}
+            class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+        />
+        </div>
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="hasta">Hasta</label>
+        <input
+            type="date"
+            id="hasta"
+            name="hasta"
+            value={hastaValue}
+            class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+        />
+        </div>
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="categoria-personalizada">Categoría</label>
+        <select
+            id="categoria-personalizada"
+            name="categoria"
+            class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+        >
+            <option value="">Todas</option>
+            {
+            categories.map((c) => (
+                <option value={c.id} selected={c.id === categoriaParam}>
+                {c.name}
+                </option>
+            ))
+            }
+        </select>
+        </div>
+        <button
+        type="submit"
+        class="rounded-md bg-bechis-yellow px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+        >
+        Aplicar
+        </button>
+    </form>
+
+    <!-- Filtro rápido por categoría, manteniendo el rango de fechas actual -->
+    <form method="get" class="mb-6 flex flex-wrap items-end gap-3">
+        <input type="hidden" name="rango" value={rango === "personalizado" ? "mes" : rango} />
+        <div>
+        <label class="mb-1 block text-xs text-text-muted" for="categoria-rapida">Filtrar por categoría</label>
+        <select
+            id="categoria-rapida"
+            name="categoria"
+            class="rounded-md border border-surface-line bg-surface px-3 py-1.5 text-sm text-white"
+        >
+            <option value="">Todas las categorías</option>
+            {
+            categories.map((c) => (
+                <option value={c.id} selected={c.id === categoriaParam}>
+                {c.name}
+                </option>
+            ))
+            }
+        </select>
+        </div>
+    </form>
+
+    <div class="mb-6 rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+        <p class="mb-1 text-sm text-text-muted">Total gastado en el período</p>
+        <p class="text-2xl font-bold text-white">{fmt(totalGastado)}</p>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-surface-line bg-surface shadow-subtle">
+        <table class="w-full text-left text-sm">
+        <thead>
+            <tr class="border-b border-surface-line text-text-muted">
+            <th class="px-4 py-3 font-medium">Fecha</th>
+            <th class="px-4 py-3 font-medium">Categoría</th>
+            <th class="px-4 py-3 font-medium">Descripción</th>
+            <th class="px-4 py-3 font-medium">Método</th>
+            <th class="px-4 py-3 font-medium">Comprobante</th>
+            <th class="px-4 py-3 text-right font-medium">Monto</th>
+            <th class="px-4 py-3 text-right font-medium">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {
+            expenses.length === 0 ? (
+                <tr>
+                <td colspan="7" class="px-4 py-6 text-center text-text-muted">
+                    No hay gastos registrados en este período.
+                </td>
+                </tr>
+            ) : (
+                expenses.map((e) => (
+                <tr class="border-b border-surface-line last:border-0">
+                    <td class="px-4 py-3 text-white">{fmtDate(e.createdAt)}</td>
+                    <td class="px-4 py-3 text-white">{e.categoryName}</td>
+                    <td class="px-4 py-3 text-white">{e.description}</td>
+                    <td class="px-4 py-3 text-text-muted">{formatPaymentMethod(e.paymentMethod)}</td>
+                    <td class="px-4 py-3">
+                    {e.receiptUrl ? (
+                        <a
+                        href={e.receiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-bechis-yellow hover:underline"
+                        >
+                        Ver
+                        </a>
+                    ) : (
+                        <span class="text-text-muted">—</span>
+                    )}
+                    </td>
+                    <td class="px-4 py-3 text-right font-semibold text-white">{fmt(e.amount)}</td>
+                    <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-3">
+                        <a href={`/admin/gastos/${e.id}/editar`} class="text-bechis-yellow hover:underline">
+                        Editar
+                        </a>
+                        <button type="button" data-delete-expense={e.id} class="text-danger hover:underline">
+                        Eliminar
+                        </button>
+                    </div>
+                    </td>
+                </tr>
+                ))
+            )
+            }
+        </tbody>
+        </table>
+    </div>
+</AdminLayout>
+
+<script>
+    import { attachExpenseDeleteHandlers } from "@/components/admin/ExpenseForm";
+    attachExpenseDeleteHandlers();
+
+    // El filtro rápido de categoría envía el form solo con JS (sin este
+    // script el <select> no hace nada, pero el form "Aplicar" de arriba
+    // sigue funcionando igual).
+    document.getElementById("categoria-rapida")?.addEventListener("change", (e) => {
+        (e.currentTarget as HTMLSelectElement).form?.submit();
+    });
+</script>

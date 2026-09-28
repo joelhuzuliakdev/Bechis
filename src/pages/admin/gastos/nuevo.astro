@@ -1,0 +1,28 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchExpenseCategories } from "@/lib/expenses/fetchExpenses";
+import ExpenseForm from "@/components/admin/ExpenseForm.astro";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const categories = await fetchExpenseCategories(supabase);
+---
+
+<AdminLayout title="Nuevo gasto" role={role} userName={userName}>
+    <div class="mb-6">
+        <h1 class="text-brand text-2xl text-black">Nuevo gasto</h1>
+        <p class="text-sm text-text-muted">Cargá un gasto del local.</p>
+    </div>
+
+    <ExpenseForm mode="crear" categories={categories} />
+</AdminLayout>
+
+<script>
+    import { mountExpenseForm } from "@/components/admin/ExpenseForm";
+    mountExpenseForm();
+</script>
