@@ -1,0 +1,32 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSuppliers } from "@/lib/suppliers/fetchSuppliers";
+import { fetchExpenseCategories } from "@/lib/expenses/fetchExpenses";
+import InvoiceForm from "@/components/admin/InvoiceForm.astro";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const [suppliers, categories] = await Promise.all([
+  fetchSuppliers(supabase, { onlyActive: true }),
+  fetchExpenseCategories(supabase),
+]);
+---
+
+<AdminLayout title="Nueva factura" role={role} userName={userName}>
+  <div class="mb-6">
+    <h1 class="text-brand text-2xl text-white">Nueva factura</h1>
+    <p class="text-sm text-text-muted">Registrá una factura de proveedor.</p>
+  </div>
+
+  <InvoiceForm mode="crear" suppliers={suppliers} categories={categories} />
+</AdminLayout>
+
+<script>
+  import { mountInvoiceForm } from "@/components/admin/InvoiceForm";
+  mountInvoiceForm();
+</script>

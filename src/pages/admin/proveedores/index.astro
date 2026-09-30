@@ -1,0 +1,133 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSuppliers } from "@/lib/suppliers/fetchSuppliers";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const search = Astro.url.searchParams.get("q") ?? "";
+const estadoParam = Astro.url.searchParams.get("estado") ?? "activos"; // activos | todos | inactivos
+
+const suppliers = await fetchSuppliers(supabase, { search });
+
+const filtered = suppliers.filter((s) => {
+  if (estadoParam === "activos") return s.active;
+  if (estadoParam === "inactivos") return !s.active;
+  return true;
+});
+---
+
+<AdminLayout title="Proveedores" role={role} userName={userName}>
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-brand text-2xl text-white">Proveedores</h1>
+      <p class="text-sm text-text-muted">Alta y gestión de proveedores.</p>
+    </div>
+    <a
+      href="/admin/proveedores/nuevo"
+      class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+    >
+      + Nuevo proveedor
+    </a>
+  </div>
+
+  <form method="get" class="mb-6 flex flex-wrap items-end gap-3">
+    <div class="min-w-[200px] flex-1">
+      <label class="mb-1 block text-xs text-text-muted" for="q">Buscar</label>
+      <input
+        type="text"
+        id="q"
+        name="q"
+        value={search}
+        placeholder="Nombre, empresa o CUIT..."
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+      />
+    </div>
+    <div>
+      <label class="mb-1 block text-xs text-text-muted" for="estado">Estado</label>
+      <select
+        id="estado"
+        name="estado"
+        class="rounded-md border border-surface-line bg-ink px-3 py-1.5 text-sm text-white"
+      >
+        <option value="activos" selected={estadoParam === "activos"}>Activos</option>
+        <option value="inactivos" selected={estadoParam === "inactivos"}>Inactivos</option>
+        <option value="todos" selected={estadoParam === "todos"}>Todos</option>
+      </select>
+    </div>
+    <button type="submit" class="rounded-md bg-surface px-4 py-1.5 text-sm font-medium text-white hover:bg-ink">
+      Buscar
+    </button>
+  </form>
+
+  <div class="overflow-x-auto rounded-lg border border-surface-line bg-surface shadow-subtle">
+    <table class="w-full text-left text-sm">
+      <thead>
+        <tr class="border-b border-surface-line text-text-muted">
+          <th class="px-4 py-3 font-medium">Nombre</th>
+          <th class="px-4 py-3 font-medium">Empresa</th>
+          <th class="px-4 py-3 font-medium">Contacto</th>
+          <th class="px-4 py-3 font-medium">CUIT</th>
+          <th class="px-4 py-3 font-medium">Estado</th>
+          <th class="px-4 py-3 text-right font-medium">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          filtered.length === 0 ? (
+            <tr>
+              <td colspan="6" class="px-4 py-6 text-center text-text-muted">
+                No hay proveedores que coincidan con la búsqueda.
+              </td>
+            </tr>
+          ) : (
+            filtered.map((s) => (
+              <tr class="border-b border-surface-line last:border-0">
+                <td class="px-4 py-3 text-white">{s.name}</td>
+                <td class="px-4 py-3 text-text-muted">{s.company ?? "—"}</td>
+                <td class="px-4 py-3 text-text-muted">
+                  <div>{s.phone ?? "—"}</div>
+                  <div class="text-xs">{s.email ?? ""}</div>
+                </td>
+                <td class="px-4 py-3 text-text-muted">{s.cuit ?? "—"}</td>
+                <td class="px-4 py-3">
+                  <span
+                    class={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      s.active ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
+                    }`}
+                  >
+                    {s.active ? "Activo" : "Inactivo"}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-3">
+                    <a href={`/admin/proveedores/${s.id}/editar`} class="text-bechis-yellow hover:underline">
+                      Editar
+                    </a>
+                    <button
+                      type="button"
+                      data-toggle-active={s.id}
+                      data-active={String(s.active)}
+                      class={`hover:underline ${s.active ? "text-danger" : "text-success"}`}
+                    >
+                      {s.active ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  import { attachSupplierToggleHandlers } from "@/components/admin/SupplierForm";
+  attachSupplierToggleHandlers();
+</script>

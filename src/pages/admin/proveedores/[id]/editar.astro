@@ -1,0 +1,34 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSupplierById } from "@/lib/suppliers/fetchSuppliers";
+import SupplierForm from "@/components/admin/SupplierForm.astro";
+
+const { id } = Astro.params;
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const supplier = id ? await fetchSupplierById(supabase, id) : null;
+
+if (!supplier) {
+  return Astro.redirect("/admin/proveedores");
+}
+---
+
+<AdminLayout title="Editar proveedor" role={role} userName={userName}>
+  <div class="mb-6">
+    <h1 class="text-brand text-2xl text-white">Editar proveedor</h1>
+    <p class="text-sm text-text-muted">Modificá los datos del proveedor.</p>
+  </div>
+
+  <SupplierForm mode="editar" supplier={supplier} />
+</AdminLayout>
+
+<script>
+  import { mountSupplierForm } from "@/components/admin/SupplierForm";
+  mountSupplierForm();
+</script>

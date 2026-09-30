@@ -1,0 +1,22 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import SupplierForm from "@/components/admin/SupplierForm.astro";
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+---
+
+<AdminLayout title="Nuevo proveedor" role={role} userName={userName}>
+  <div class="mb-6">
+    <h1 class="text-brand text-2xl text-white">Nuevo proveedor</h1>
+    <p class="text-sm text-text-muted">Cargá los datos del proveedor.</p>
+  </div>
+
+  <SupplierForm mode="crear" />
+</AdminLayout>
+
+<script>
+  import { mountSupplierForm } from "@/components/admin/SupplierForm";
+  mountSupplierForm();
+</script>

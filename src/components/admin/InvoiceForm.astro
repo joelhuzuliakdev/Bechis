@@ -1,0 +1,221 @@
+---
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/format/paymentMethods";
+
+export interface InvoiceFormValues {
+  id?: string;
+  supplierId: string;
+  invoiceNumber: string;
+  date: string;
+  dueDate: string | null;
+  detail: string | null;
+  imageUrl: string | null;
+  total: number;
+  paymentStatus?: "pendiente" | "pagada";
+}
+
+export interface Props {
+  mode: "crear" | "editar";
+  suppliers: { id: string; name: string; active: boolean }[];
+  categories: { id: string; name: string }[];
+  invoice?: InvoiceFormValues;
+}
+
+const { mode, suppliers, categories, invoice } = Astro.props;
+const isPaid = invoice?.paymentStatus === "pagada";
+
+const currencyFormatter = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
+---
+
+<form id="invoice-form" data-mode={mode} data-invoice-id={invoice?.id ?? ""} class="max-w-xl space-y-5">
+  <div
+    id="invoice-form-error"
+    class="hidden rounded-md border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-danger"
+  >
+  </div>
+
+  {
+    mode === "editar" && (
+      <>
+        <div class="flex items-center justify-between rounded-md bg-ink px-4 py-3">
+          <div>
+            <p class="text-xs text-text-muted">Estado de pago</p>
+            <p class={`text-sm font-semibold ${isPaid ? "text-success" : "text-warning"}`}>
+              {isPaid ? "Pagada" : "Pendiente"}
+            </p>
+          </div>
+          {isPaid ? (
+            <button type="button" id="unpay-invoice" class="text-sm text-danger hover:underline">
+              Volver a pendiente
+            </button>
+          ) : (
+            <button
+              type="button"
+              id="toggle-pay-box"
+              class="rounded-md bg-bechis-yellow px-3 py-1.5 text-sm font-semibold text-ink hover:bg-bechis-yellow-dark"
+            >
+              Marcar como pagada
+            </button>
+          )}
+        </div>
+
+        {!isPaid && (
+          <div id="pay-box" class="hidden space-y-3 rounded-md border border-surface-line bg-ink p-4">
+            <p class="text-xs text-text-muted">
+              Se va a crear un gasto de {currencyFormatter.format(invoice?.total ?? 0)} vinculado a esta factura.
+            </p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-xs text-text-muted" for="pay-category">
+                  Categoría del gasto
+                </label>
+                <select
+                  id="pay-category"
+                  class="w-full rounded-md border border-surface-line bg-surface px-3 py-2 text-sm text-white"
+                >
+                  <option value="" disabled selected>
+                    Elegí una categoría
+                  </option>
+                  {categories.map((c) => (
+                    <option value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-text-muted" for="pay-method">
+                  Método de pago
+                </label>
+                <select
+                  id="pay-method"
+                  class="w-full rounded-md border border-surface-line bg-surface px-3 py-2 text-sm text-white"
+                >
+                  {PAYMENT_METHOD_OPTIONS.map((m) => (
+                    <option value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="confirm-pay"
+              class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-semibold text-ink hover:bg-bechis-yellow-dark"
+            >
+              Confirmar pago
+            </button>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="supplier-id">Proveedor</label>
+    <select
+      id="supplier-id"
+      name="supplierId"
+      required
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    >
+      <option value="" disabled selected={!invoice}>
+        Elegí un proveedor
+      </option>
+      {
+        suppliers.map((s) => (
+          <option value={s.id} selected={s.id === invoice?.supplierId}>
+            {s.name}
+            {!s.active ? " (inactivo)" : ""}
+          </option>
+        ))
+      }
+    </select>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="invoice-number">Número de factura</label>
+      <input
+        type="text"
+        id="invoice-number"
+        name="invoiceNumber"
+        required
+        value={invoice?.invoiceNumber ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="total">Importe</label>
+      <input
+        type="number"
+        id="total"
+        name="total"
+        step="0.01"
+        min="0"
+        required
+        value={invoice?.total ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="date">Fecha de emisión</label>
+      <input
+        type="date"
+        id="date"
+        name="date"
+        required
+        value={invoice?.date ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="due-date">Vencimiento</label>
+      <input
+        type="date"
+        id="due-date"
+        name="dueDate"
+        value={invoice?.dueDate ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+  </div>
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="detail">Detalle</label>
+    <input
+      type="text"
+      id="detail"
+      name="detail"
+      value={invoice?.detail ?? ""}
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    />
+  </div>
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="image-url">Comprobante (link, opcional)</label>
+    <input
+      type="url"
+      id="image-url"
+      name="imageUrl"
+      placeholder="https://..."
+      value={invoice?.imageUrl ?? ""}
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    />
+  </div>
+
+  <div class="flex justify-end gap-3 pt-2">
+    <a href="/admin/facturas" class="rounded-md px-4 py-2 text-sm text-text-muted hover:text-white">
+      Cancelar
+    </a>
+    <button
+      type="submit"
+      class="rounded-md bg-bechis-yellow px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+    >
+      {mode === "crear" ? "Guardar factura" : "Guardar cambios"}
+    </button>
+  </div>
+</form>

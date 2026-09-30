@@ -1,0 +1,167 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchInvoices } from "@/lib/invoices/fetchInvoices";
+import { fetchSuppliers } from "@/lib/suppliers/fetchSuppliers";
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const supplierParam = Astro.url.searchParams.get("proveedor") ?? "";
+const estadoParam = Astro.url.searchParams.get("estado") ?? ""; // "" | pendiente | pagada
+
+const [invoices, suppliers] = await Promise.all([
+  fetchInvoices(supabase, {
+    supplierId: supplierParam || undefined,
+    status: estadoParam === "pendiente" || estadoParam === "pagada" ? estadoParam : undefined,
+  }),
+  fetchSuppliers(supabase),
+]);
+
+const totalPendiente = invoices
+  .filter((i) => i.paymentStatus === "pendiente")
+  .reduce((sum, i) => sum + i.total, 0);
+
+const totalPagado = invoices
+  .filter((i) => i.paymentStatus === "pagada")
+  .reduce((sum, i) => sum + i.total, 0);
+
+const currencyFormatter = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
+function fmt(n: number): string {
+  return currencyFormatter.format(n);
+}
+
+const dateFormatter = new Intl.DateTimeFormat("es-AR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+function fmtDate(iso: string): string {
+  return dateFormatter.format(new Date(`${iso}T00:00:00`));
+}
+---
+
+<AdminLayout title="Facturas" role={role} userName={userName}>
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      
+      <p class="text-sm text-text-muted">Registro de facturas de proveedores.</p>
+    </div>
+    <a
+      href="/admin/facturas/nueva"
+      class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+    >
+      + Nueva factura
+    </a>
+  </div>
+
+  <form method="get" class="mb-6 flex flex-wrap items-end gap-3">
+    <div>
+      <label class="mb-1 block text-xs text-text-muted" for="proveedor">Proveedor</label>
+      <select
+        id="proveedor"
+        name="proveedor"
+        class="rounded-md border border-surface-line bg-surface px-3 py-1.5 text-sm text-white"
+      >
+        <option value="">Todos</option>
+        {
+          suppliers.map((s) => (
+            <option value={s.id} selected={s.id === supplierParam}>
+              {s.name}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+    <div>
+      <label class="mb-1 block text-xs text-text-muted" for="estado">Estado</label>
+      <select
+        id="estado"
+        name="estado"
+        class="rounded-md border border-surface-line bg-surface px-3 py-1.5 text-sm text-white"
+      >
+        <option value="" selected={estadoParam === ""}>Todos</option>
+        <option value="pendiente" selected={estadoParam === "pendiente"}>Pendientes</option>
+        <option value="pagada" selected={estadoParam === "pagada"}>Pagadas</option>
+      </select>
+    </div>
+    <button type="submit" class="rounded-md bg-surface px-4 py-1.5 text-sm font-medium text-white hover:bg-ink">
+      Filtrar
+    </button>
+  </form>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+      <p class="mb-1 text-sm text-text-muted">Total pendiente</p>
+      <p class="text-2xl font-bold text-warning">{fmt(totalPendiente)}</p>
+    </div>
+    <div class="rounded-lg border border-surface-line bg-surface p-5 shadow-subtle">
+      <p class="mb-1 text-sm text-text-muted">Total pagado</p>
+      <p class="text-2xl font-bold text-success">{fmt(totalPagado)}</p>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-surface-line bg-surface shadow-subtle">
+    <table class="w-full text-left text-sm">
+      <thead>
+        <tr class="border-b border-surface-line text-text-muted">
+          <th class="px-4 py-3 font-medium">N° Factura</th>
+          <th class="px-4 py-3 font-medium">Proveedor</th>
+          <th class="px-4 py-3 font-medium">Emisión</th>
+          <th class="px-4 py-3 font-medium">Vencimiento</th>
+          <th class="px-4 py-3 font-medium">Estado</th>
+          <th class="px-4 py-3 text-right font-medium">Importe</th>
+          <th class="px-4 py-3 text-right font-medium">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          invoices.length === 0 ? (
+            <tr>
+              <td colspan="7" class="px-4 py-6 text-center text-text-muted">
+                No hay facturas que coincidan con el filtro.
+              </td>
+            </tr>
+          ) : (
+            invoices.map((i) => (
+              <tr class="border-b border-surface-line last:border-0">
+                <td class="px-4 py-3 text-white">{i.invoiceNumber}</td>
+                <td class="px-4 py-3 text-white">{i.supplierName}</td>
+                <td class="px-4 py-3 text-text-muted">{fmtDate(i.date)}</td>
+                <td class="px-4 py-3 text-text-muted">{i.dueDate ? fmtDate(i.dueDate) : "—"}</td>
+                <td class="px-4 py-3">
+                  {i.paymentStatus === "pagada" ? (
+                    <span class="rounded-full bg-success/20 px-2.5 py-1 text-xs font-medium text-success">
+                      Pagada
+                    </span>
+                  ) : i.isOverdue ? (
+                    <span class="rounded-full bg-danger/20 px-2.5 py-1 text-xs font-medium text-danger">
+                      Vencida
+                    </span>
+                  ) : (
+                    <span class="rounded-full bg-warning/20 px-2.5 py-1 text-xs font-medium text-warning">
+                      Pendiente
+                    </span>
+                  )}
+                </td>
+                <td class="px-4 py-3 text-right font-semibold text-white">{fmt(i.total)}</td>
+                <td class="px-4 py-3 text-right">
+                  <a href={`/admin/facturas/${i.id}/editar`} class="text-bechis-yellow hover:underline">
+                    {i.paymentStatus === "pagada" ? "Ver" : "Editar"}
+                  </a>
+                </td>
+              </tr>
+            ))
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

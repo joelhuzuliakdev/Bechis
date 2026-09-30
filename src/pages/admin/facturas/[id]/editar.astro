@@ -1,0 +1,43 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchInvoiceById } from "@/lib/invoices/fetchInvoices";
+import { fetchSuppliers } from "@/lib/suppliers/fetchSuppliers";
+import { fetchExpenseCategories } from "@/lib/expenses/fetchExpenses";
+import InvoiceForm from "@/components/admin/InvoiceForm.astro";
+
+const { id } = Astro.params;
+
+const supabase = createSupabaseServerClient(Astro.cookies);
+
+const profile = Astro.locals.profile;
+const userName = profile?.full_name ?? profile?.email ?? "Usuario";
+const role = profile?.role ?? "admin";
+
+const invoice = id ? await fetchInvoiceById(supabase, id) : null;
+
+if (!invoice) {
+  return Astro.redirect("/admin/facturas");
+}
+
+// Acá traemos TODOS los proveedores (activos e inactivos), para poder
+// mostrar el proveedor actual de la factura aunque esté desactivado.
+const [suppliers, categories] = await Promise.all([
+  fetchSuppliers(supabase),
+  fetchExpenseCategories(supabase),
+]);
+---
+
+<AdminLayout title="Editar factura" role={role} userName={userName}>
+  <div class="mb-6">
+    <h1 class="text-brand text-2xl text-white">Editar factura</h1>
+    <p class="text-sm text-text-muted">Modificá los datos de la factura.</p>
+  </div>
+
+  <InvoiceForm mode="editar" suppliers={suppliers} categories={categories} invoice={invoice} />
+</AdminLayout>
+
+<script>
+  import { mountInvoiceForm } from "@/components/admin/InvoiceForm";
+  mountInvoiceForm();
+</script>

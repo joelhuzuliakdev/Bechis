@@ -1,0 +1,136 @@
+---
+export interface SupplierFormValues {
+  id?: string;
+  name: string;
+  company?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  cuit?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  active?: boolean;
+}
+
+export interface Props {
+  mode: "crear" | "editar";
+  supplier?: SupplierFormValues;
+}
+
+const { mode, supplier } = Astro.props;
+---
+
+<form id="supplier-form" data-mode={mode} data-supplier-id={supplier?.id ?? ""} class="max-w-xl space-y-5">
+  <div
+    id="supplier-form-error"
+    class="hidden rounded-md border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-danger"
+  >
+  </div>
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="name">Nombre *</label>
+    <input
+      type="text"
+      id="name"
+      name="name"
+      required
+      value={supplier?.name ?? ""}
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    />
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="company">Empresa</label>
+      <input
+        type="text"
+        id="company"
+        name="company"
+        value={supplier?.company ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="cuit">CUIT</label>
+      <input
+        type="text"
+        id="cuit"
+        name="cuit"
+        value={supplier?.cuit ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="phone">Teléfono</label>
+      <input
+        type="text"
+        id="phone"
+        name="phone"
+        value={supplier?.phone ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+    <div>
+      <label class="mb-1 block text-sm text-text-muted" for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        value={supplier?.email ?? ""}
+        class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+      />
+    </div>
+  </div>
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="address">Dirección</label>
+    <input
+      type="text"
+      id="address"
+      name="address"
+      value={supplier?.address ?? ""}
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    />
+  </div>
+
+  <div>
+    <label class="mb-1 block text-sm text-text-muted" for="notes">Notas</label>
+    <textarea
+      id="notes"
+      name="notes"
+      rows="3"
+      class="w-full rounded-md border border-surface-line bg-ink px-3 py-2 text-sm text-white"
+    >{supplier?.notes ?? ""}</textarea>
+  </div>
+
+  <div class="flex items-center justify-between pt-2">
+    <div>
+      {
+        mode === "editar" && (
+          <button
+            type="button"
+            id="toggle-active"
+            data-supplier-id={supplier?.id}
+            data-active={String(supplier?.active ?? true)}
+            class={`text-sm hover:underline ${supplier?.active ? "text-danger" : "text-success"}`}
+          >
+            {supplier?.active ? "Desactivar proveedor" : "Activar proveedor"}
+          </button>
+        )
+      }
+    </div>
+    <div class="flex gap-3">
+      <a href="/admin/proveedores" class="rounded-md px-4 py-2 text-sm text-text-muted hover:text-white">
+        Cancelar
+      </a>
+      <button
+        type="submit"
+        class="rounded-md bg-bechis-yellow px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bechis-yellow-dark"
+      >
+        {mode === "crear" ? "Guardar proveedor" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
