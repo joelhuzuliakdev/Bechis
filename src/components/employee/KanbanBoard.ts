@@ -251,9 +251,18 @@ function openCobrarModal(order: OrderCardData, cardEl: HTMLElement) {
   });
 }
 
-function moveCard(order: OrderCardData, existingEl?: HTMLElement) {
+function moveCard(order: OrderCardData, existingElHint?: HTMLElement) {
   const columnId = STATUS_TO_COLUMN[order.status];
   const column = columnId ? document.getElementById(columnId) : null;
+
+  // No confiamos ciegamente en la referencia que nos pasaron: puede
+  // quedar vieja si el click local y el evento de Realtime se disparan
+  // casi al mismo tiempo para el mismo pedido (pasa seguido ahora que
+  // el PATCH tarda más por el envío de WhatsApp). Por eso volvemos a
+  // buscar en el DOM por data-order-id, que siempre refleja el estado
+  // real actual.
+  const existingEl =
+    document.querySelector<HTMLElement>(`[data-order-id='${order.id}']`) ?? existingElHint;
 
   // Si el nuevo estado no tiene columna (p. ej. "cancelado", o
   // "finalizado" ya cobrado que se saca del tablero), simplemente se
@@ -265,7 +274,16 @@ function moveCard(order: OrderCardData, existingEl?: HTMLElement) {
   }
 
   const fresh = buildCardEl(order);
-  if (existingEl) existingEl.replaceWith(fresh);
+
+  // Sacamos la tarjeta vieja de donde esté (puede estar en otra columna
+  // — por eso no alcanza con replaceWith, que solo reemplaza dentro del
+  // mismo padre) y ponemos la nueva directamente en la columna que le
+  // corresponde al estado actual. Si no había tarjeta vieja (o ya la
+  // había sacado una llamada anterior en la misma carrera), no pasa
+  // nada raro: igual insertamos una sola.
+  if (existingEl && existingEl.isConnected) {
+    existingEl.remove();
+  }
   column.prepend(fresh);
   updateColumnCounts();
 }

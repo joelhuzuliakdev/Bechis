@@ -45,8 +45,8 @@ export const ORDER_SELECT = `
     quantity,
     products ( name ),
     order_item_ingredients (
-      name,
-      action
+      action,
+      ingredients ( name )
     )
   )
 `;
@@ -57,8 +57,12 @@ function mapOrderRow(row: any): OrderCardData {
     return {
       productName: item.products?.name ?? "Producto",
       quantity: item.quantity,
-      removed: ingredients.filter((i: any) => i.action === "removed").map((i: any) => i.name),
-      added: ingredients.filter((i: any) => i.action === "added").map((i: any) => ({ name: i.name })),
+      removed: ingredients
+        .filter((i: any) => i.action === "removed")
+        .map((i: any) => i.ingredients?.name ?? "Ingrediente"),
+      added: ingredients
+        .filter((i: any) => i.action === "added")
+        .map((i: any) => ({ name: i.ingredients?.name ?? "Ingrediente" })),
     };
   });
 

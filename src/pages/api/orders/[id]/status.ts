@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { canTransition, timestampColumnFor, type OrderStatus } from "@/lib/orders/orderStatus";
+import { fetchOrderById } from "@/lib/orders/fetchOrders";
+import { notifyOrderStatus } from "@/lib/whatsapp/notifyOrderStatus";
 
 const ALL_STATUSES = [
   "pedidos",
@@ -78,6 +80,20 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     return new Response(JSON.stringify({ error: "No se pudo actualizar el pedido" }), {
       status: 500,
     });
+  }
+
+  // El pedido ya quedó actualizado en este punto. Si el WhatsApp falla,
+  // no revertimos el cambio de estado — solo queda registrado el error
+  // en order_notifications (ver notifyOrderStatus). No usamos "await"
+  // bloqueante de más de la cuenta: igual esperamos para loguear bien,
+  // pero cualquier error ahí no afecta la respuesta al Kanban.
+  try {
+    const updatedOrder = await fetchOrderById(supabase, id);
+    if (updatedOrder) {
+      await notifyOrderStatus(supabase, updatedOrder, nextStatus);
+    }
+  } catch (notifyError) {
+    console.error("Error enviando notificación de WhatsApp:", notifyError);
   }
 
   return new Response(JSON.stringify({ ok: true, status: nextStatus }), { status: 200 });
