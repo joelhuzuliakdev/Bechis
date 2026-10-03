@@ -2,10 +2,38 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { showToast } from "@/stores/toast"; // AJUSTAR si tu export real está en otro lado
 import type { OrderCardData } from "@/lib/orders/fetchOrders";
 
+// "cancelado" NO tiene columna — un pedido cancelado se saca del tablero
+// (ver moveCard) y se consulta aparte en /empleado/pedidos/cancelados.
 const STATUS_TO_COLUMN: Record<string, string> = {
   pedidos: "column-pedidos",
+  confirmado: "column-confirmado",
   en_proceso: "column-en_proceso",
+  listo_para_retirar: "column-listo_para_retirar",
   finalizado: "column-finalizado",
+};
+
+// Etiqueta del botón de avance normal para cada estado actual.
+const ADVANCE_LABELS: Record<string, { next: string; label: string; className: string }> = {
+  pedidos: {
+    next: "confirmado",
+    label: "Aceptar pedido",
+    className: "mt-3 w-full rounded-md bg-bechis-yellow px-3 py-2 text-xs font-bold text-ink",
+  },
+  confirmado: {
+    next: "en_proceso",
+    label: "En Proceso",
+    className: "mt-3 w-full rounded-md bg-bechis-yellow px-3 py-2 text-xs font-bold text-ink",
+  },
+  en_proceso: {
+    next: "listo_para_retirar",
+    label: "Listo para retirar",
+    className: "mt-3 w-full rounded-md bg-gray-900 px-3 py-2 text-xs font-bold text-white",
+  },
+  listo_para_retirar: {
+    next: "finalizado",
+    label: "Finalizar",
+    className: "mt-3 w-full rounded-md bg-gray-900 px-3 py-2 text-xs font-bold text-white",
+  },
 };
 
 function money(n: number): string {
@@ -36,16 +64,23 @@ function renderDeliveryHtml(order: OrderCardData): string {
 }
 
 function renderActionButton(order: OrderCardData): string {
-  if (order.status === "pedidos") {
-    return `<button type="button" data-action="advance" data-next="en_proceso" class="mt-3 w-full rounded-md bg-bechis-yellow px-3 py-2 text-xs font-bold text-ink">En Proceso</button>`;
+  const advance = ADVANCE_LABELS[order.status];
+  if (advance) {
+    return `<button type="button" data-action="advance" data-next="${advance.next}" class="${advance.className}">${advance.label}</button>`;
   }
-  if (order.status === "en_proceso") {
-    return `<button type="button" data-action="advance" data-next="finalizado" class="mt-3 w-full rounded-md bg-gray-900 px-3 py-2 text-xs font-bold text-white">Finalizar</button>`;
-  }
+  // order.status === "finalizado" a partir de aquí: misma lógica de
+  // Cobrar que ya funcionaba, sin tocar.
   if (order.paymentStatus === "cobrado") {
     return `<div class="mt-3 w-full rounded-md bg-green-50 px-3 py-2 text-center text-xs font-bold text-green-700">✓ Cobrado</div>`;
   }
   return `<button type="button" data-action="cobrar" class="mt-3 w-full rounded-md bg-bechis-yellow px-3 py-2 text-xs font-bold text-ink">Cobrar / Pasar a venta</button>`;
+}
+
+function renderCancelLink(order: OrderCardData): string {
+  // Se puede cancelar desde cualquier columna activa, salvo "finalizado"
+  // ya cobrado (ahí no corresponde — ya es una venta cerrada).
+  if (order.status === "finalizado") return "";
+  return `<button type="button" data-action="cancel" class="mt-1.5 w-full rounded-md px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">Cancelar pedido</button>`;
 }
 
 function buildCardEl(order: OrderCardData): HTMLElement {
@@ -62,11 +97,13 @@ function buildCardEl(order: OrderCardData): HTMLElement {
     <div class="mb-2 border-t border-gray-100 pt-2">${renderItemsHtml(order)}</div>
     <div class="mb-1 border-t border-gray-100 pt-2">${renderDeliveryHtml(order)}</div>
     ${renderActionButton(order)}
+    ${renderCancelLink(order)}
   `;
 
   card.querySelector("[data-action='advance']")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget as HTMLButtonElement;
     const next = btn.dataset.next as string;
+    const originalLabel = btn.textContent ?? "";
     btn.disabled = true;
     btn.textContent = "Moviendo...";
 
@@ -79,7 +116,7 @@ function buildCardEl(order: OrderCardData): HTMLElement {
     if (!res.ok) {
       showToast("No se pudo mover el pedido. Probá de nuevo.");
       btn.disabled = false;
-      btn.textContent = next === "en_proceso" ? "En Proceso" : "Finalizar";
+      btn.textContent = originalLabel;
       return;
     }
     order.status = next as OrderCardData["status"];
@@ -88,6 +125,28 @@ function buildCardEl(order: OrderCardData): HTMLElement {
 
   card.querySelector("[data-action='cobrar']")?.addEventListener("click", () => {
     openCobrarModal(order, card);
+  });
+
+  card.querySelector("[data-action='cancel']")?.addEventListener("click", async () => {
+    const reason = window.prompt("Motivo de la cancelación (opcional):", "") ?? undefined;
+    const confirmed = window.confirm(`¿Cancelar el pedido #${order.orderNumber}?`);
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/orders/${order.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelado", reason: reason?.trim() || undefined }),
+    });
+
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}));
+      showToast(result.error ?? "No se pudo cancelar el pedido.");
+      return;
+    }
+
+    card.remove();
+    updateColumnCounts();
+    showToast(`Pedido #${order.orderNumber} cancelado`);
   });
 
   return card;
@@ -193,8 +252,18 @@ function openCobrarModal(order: OrderCardData, cardEl: HTMLElement) {
 }
 
 function moveCard(order: OrderCardData, existingEl?: HTMLElement) {
-  const column = document.getElementById(STATUS_TO_COLUMN[order.status]);
-  if (!column) return;
+  const columnId = STATUS_TO_COLUMN[order.status];
+  const column = columnId ? document.getElementById(columnId) : null;
+
+  // Si el nuevo estado no tiene columna (p. ej. "cancelado", o
+  // "finalizado" ya cobrado que se saca del tablero), simplemente se
+  // quita la tarjeta.
+  if (!column) {
+    existingEl?.remove();
+    updateColumnCounts();
+    return;
+  }
+
   const fresh = buildCardEl(order);
   if (existingEl) existingEl.replaceWith(fresh);
   column.prepend(fresh);
@@ -218,7 +287,8 @@ export async function attachKanbanBoard(initialOrdersJson: string) {
   }
 
   initialOrders.forEach((order) => {
-    document.getElementById(STATUS_TO_COLUMN[order.status])?.appendChild(buildCardEl(order));
+    const columnId = STATUS_TO_COLUMN[order.status];
+    if (columnId) document.getElementById(columnId)?.appendChild(buildCardEl(order));
   });
   updateColumnCounts();
 
@@ -243,6 +313,12 @@ export async function attachKanbanBoard(initialOrdersJson: string) {
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, async (payload) => {
       const existingEl = document.querySelector<HTMLElement>(`[data-order-id='${payload.new.id}']`);
+
+      if (payload.new.status === "cancelado") {
+        existingEl?.remove();
+        updateColumnCounts();
+        return;
+      }
 
       if (payload.new.payment_status === "cobrado") {
         existingEl?.remove();

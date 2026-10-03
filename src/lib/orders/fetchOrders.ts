@@ -1,71 +1,120 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OrderStatus } from "@/lib/orders/orderStatus";
+
+export interface OrderItemIngredientChange {
+  name: string;
+}
+
+export interface OrderItemData {
+  productName: string;
+  quantity: number;
+  removed: string[];
+  added: OrderItemIngredientChange[];
+}
 
 export interface OrderCardData {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
+  status: OrderStatus;
+  paymentStatus: string;
   customerName: string;
   customerPhone: string;
-  deliveryType: "retiro" | "envio";
-  address: string | null;
+  deliveryType: string;
   deliveryZoneName: string | null;
-  deliveryCost: number;
+  address: string | null;
   total: number;
-  status: "pedidos" | "en_proceso" | "finalizado";
-  paymentStatus: string;
-  createdAt: string;
-  items: { productName: string; quantity: number; removed: string[]; added: { name: string; price: number }[] }[];
+  items: OrderItemData[];
+  cancelReason: string | null;
+  cancelledAt: string | null;
 }
 
-const ORDER_SELECT = `
-  id, order_number, customer_name, customer_phone, delivery_type, address,
-  delivery_cost, total, status, payment_status, created_at,
+export const ORDER_SELECT = `
+  id,
+  order_number,
+  status,
+  payment_status,
+  customer_name,
+  customer_phone,
+  delivery_type,
+  address,
+  total,
+  cancel_reason,
+  cancelled_at,
   delivery_zones ( name ),
   order_items (
-    id, quantity,
+    quantity,
     products ( name ),
-    order_item_ingredients ( action, price, ingredients ( name ) )
+    order_item_ingredients (
+      name,
+      action
+    )
   )
 `;
 
-function mapOrderRow(raw: any): OrderCardData {
-  return {
-    id: raw.id,
-    orderNumber: raw.order_number,
-    customerName: raw.customer_name,
-    customerPhone: raw.customer_phone,
-    deliveryType: raw.delivery_type,
-    address: raw.address,
-    deliveryZoneName: raw.delivery_zones?.name ?? null,
-    deliveryCost: raw.delivery_cost,
-    total: raw.total,
-    status: raw.status,
-    paymentStatus: raw.payment_status,
-    createdAt: raw.created_at,
-    items: (raw.order_items ?? []).map((item: any) => ({
+function mapOrderRow(row: any): OrderCardData {
+  const items: OrderItemData[] = (row.order_items ?? []).map((item: any) => {
+    const ingredients = item.order_item_ingredients ?? [];
+    return {
       productName: item.products?.name ?? "Producto",
       quantity: item.quantity,
-      removed: (item.order_item_ingredients ?? [])
-        .filter((i: any) => i.action === "quitado")
-        .map((i: any) => i.ingredients?.name ?? ""),
-      added: (item.order_item_ingredients ?? [])
-        .filter((i: any) => i.action === "agregado")
-        .map((i: any) => ({ name: i.ingredients?.name ?? "", price: i.price })),
-    })),
+      removed: ingredients.filter((i: any) => i.action === "removed").map((i: any) => i.name),
+      added: ingredients.filter((i: any) => i.action === "added").map((i: any) => ({ name: i.name })),
+    };
+  });
+
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status,
+    paymentStatus: row.payment_status,
+    customerName: row.customer_name,
+    customerPhone: row.customer_phone,
+    deliveryType: row.delivery_type,
+    deliveryZoneName: row.delivery_zones?.name ?? null,
+    address: row.address ?? null,
+    total: row.total,
+    items,
+    cancelReason: row.cancel_reason ?? null,
+    cancelledAt: row.cancelled_at ?? null,
   };
 }
 
-export async function fetchOrderById(client: SupabaseClient, id: string): Promise<OrderCardData | null> {
-  const { data, error } = await client.from("orders").select(ORDER_SELECT).eq("id", id).maybeSingle();
+export async function fetchOrderById(
+  supabase: SupabaseClient,
+  id: string
+): Promise<OrderCardData | null> {
+  const { data, error } = await supabase.from("orders").select(ORDER_SELECT).eq("id", id).single();
+  if (error) console.error("fetchOrderById error:", JSON.stringify(error));
   if (error || !data) return null;
   return mapOrderRow(data);
 }
 
-export async function fetchActiveOrders(client: SupabaseClient): Promise<OrderCardData[]> {
-  const { data, error } = await client
+// Pedidos activos: todo lo que no esté cancelado. "finalizado" se sigue
+// mostrando en el tablero hasta que se cobra (payment_status = 'cobrado'),
+// tal como ya funcionaba antes — no se toca esa lógica.
+export async function fetchActiveOrders(supabase: SupabaseClient): Promise<OrderCardData[]> {
+  const { data, error } = await supabase
     .from("orders")
     .select(ORDER_SELECT)
-    .neq("payment_status", "cobrado") // ya cobrados = viven en Ventas, no en este tablero
+    .neq("status", "cancelado")
+    .neq("payment_status", "cobrado")
     .order("created_at", { ascending: true });
+
+  if (error) console.error("fetchActiveOrders error:", JSON.stringify(error));
+  if (error || !data) return [];
+  return data.map(mapOrderRow);
+}
+
+// Historial de pedidos cancelados, para la vista aparte (no se mezclan
+// con los activos en el tablero Kanban).
+export async function fetchCancelledOrders(supabase: SupabaseClient): Promise<OrderCardData[]> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .eq("status", "cancelado")
+    .order("cancelled_at", { ascending: false });
+
+  if (error) console.error("fetchCancelledOrders error:", JSON.stringify(error));
   if (error || !data) return [];
   return data.map(mapOrderRow);
 }
