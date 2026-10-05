@@ -58,10 +58,10 @@ function mapOrderRow(row: any): OrderCardData {
       productName: item.products?.name ?? "Producto",
       quantity: item.quantity,
       removed: ingredients
-        .filter((i: any) => i.action === "removed")
+        .filter((i: any) => i.action === "quitado")
         .map((i: any) => i.ingredients?.name ?? "Ingrediente"),
       added: ingredients
-        .filter((i: any) => i.action === "added")
+        .filter((i: any) => i.action === "agregado")
         .map((i: any) => ({ name: i.ingredients?.name ?? "Ingrediente" })),
     };
   });

@@ -2,7 +2,7 @@
 //
 // Esto es el punto 16 del brief: "Cobrar / Pasar a venta". A partir de
 // acá, un pedido finalizado se convierte en una venta real, que
-// impacta Caja (si hay una abierta) y descuenta Stock.
+// impacta Caja (si hay una abierta). El Stock se descuenta al CONFIRMAR el pedido.
 //
 // Usamos el cliente ADMIN para las escrituras, no porque cualquiera
 // pueda llamar esto (primero se valida que quien llama esté logueado
@@ -42,13 +42,20 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     // 1. Traer el pedido con sus items.
     const { data: order, error: orderError } = await admin
         .from("orders")
-        .select("id, order_number, customer_name, subtotal, total, status, payment_status, order_items ( id, product_id, quantity, unit_price, subtotal )")
+        .select("id, order_number, customer_name, subtotal, total, status, payment_status, stock_deducted_at, order_items ( id, product_id, quantity, unit_price, subtotal )")
         .eq("id", orderId)
         .maybeSingle();
 
     if (orderError || !order) return json({ error: "Pedido no encontrado" }, 404);
     if (order.status !== "finalizado") return json({ error: "El pedido todavía no está Finalizado" }, 400);
     if (order.payment_status === "cobrado") return json({ error: "Este pedido ya fue cobrado" }, 400);
+
+    // Red de seguridad: un pedido Finalizado debería haber descontado stock
+    // al confirmarse. Si no lo hizo (pedido anterior a este cambio), no se
+    // frena el cobro, pero queda el aviso en el log.
+    if (!order.stock_deducted_at) {
+        console.warn(`Cobro del pedido #${order.order_number} sin descuento de stock registrado.`);
+    }
 
     const finalTotal = Math.max(0, order.total - discount);
     const changeAmount =
@@ -95,8 +102,10 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         return json({ error: "No se pudo registrar la venta" }, 500);
     }
 
-    // 5. Copiar los items del pedido a la venta, descontar stock y
-    // registrar el movimiento.
+    // 5. Copiar los items del pedido a la venta.
+    // OJO: acá YA NO se descuenta stock. El stock se descuenta una única
+    // vez cuando el pedido pasa a "Confirmado" (confirm_order_with_stock).
+    // Descontar de nuevo al cobrar duplicaría el descuento.
     for (const item of order.order_items) {
         await admin.from("sale_items").insert({
         sale_id: sale.id,
@@ -104,22 +113,6 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         quantity: item.quantity,
         unit_price: item.unit_price,
         subtotal: item.subtotal,
-        });
-
-        const { error: rpcError } = await admin.rpc("decrement_product_stock", {
-        p_product_id: item.product_id,
-        p_qty: item.quantity,
-        });
-        if (rpcError) console.error("Error descontando stock:", rpcError.message);
-
-        await admin.from("stock_movements").insert({
-        target: "producto",
-        product_id: item.product_id,
-        type: "venta",
-        quantity: item.quantity,
-        sale_id: sale.id,
-        user_id: profile.id,
-        reason: `Venta #${sale.sale_number} (pedido #${order.order_number})`,
         });
     }
 

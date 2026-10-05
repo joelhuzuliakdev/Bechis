@@ -114,9 +114,14 @@ function buildCardEl(order: OrderCardData): HTMLElement {
     });
 
     if (!res.ok) {
-      showToast("No se pudo mover el pedido. Probá de nuevo.");
+      const result = await res.json().catch(() => ({}));
       btn.disabled = false;
       btn.textContent = originalLabel;
+      if (result.code === "insufficient_stock") {
+        openStockBlockedModal(order, result.missing ?? [], result.error);
+      } else {
+        showToast(result.error ?? "No se pudo mover el pedido. Probá de nuevo.");
+      }
       return;
     }
     order.status = next as OrderCardData["status"];
@@ -132,24 +137,95 @@ function buildCardEl(order: OrderCardData): HTMLElement {
     const confirmed = window.confirm(`¿Cancelar el pedido #${order.orderNumber}?`);
     if (!confirmed) return;
 
-    const res = await fetch(`/api/orders/${order.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "cancelado", reason: reason?.trim() || undefined }),
-    });
-
-    if (!res.ok) {
+    const sendCancel = async (stockAction?: "reponer" | "merma") => {
+      const res = await fetch(`/api/orders/${order.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelado", reason: reason?.trim() || undefined, stockAction }),
+      });
       const result = await res.json().catch(() => ({}));
-      showToast(result.error ?? "No se pudo cancelar el pedido.");
-      return;
-    }
 
-    card.remove();
-    updateColumnCounts();
-    showToast(`Pedido #${order.orderNumber} cancelado`);
+      // Pedido que ya descontó stock desde "en proceso": hay que decidir
+      // qué pasa con ese stock (solo llega acá un admin).
+      if (res.status === 409 && result.code === "stock_decision_required") {
+        openStockDecisionModal(order, (action) => sendCancel(action));
+        return;
+      }
+
+      if (!res.ok) {
+        showToast(result.error ?? "No se pudo cancelar el pedido.");
+        return;
+      }
+
+      card.remove();
+      updateColumnCounts();
+      showToast(`Pedido #${order.orderNumber} cancelado`);
+    };
+
+    await sendCancel();
   });
 
   return card;
+}
+
+function formatQty(n: number, unit: string): string {
+  const num = Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+  return unit === "unidad" ? num : `${num} ${unit}`;
+}
+
+// Se muestra cuando no se puede confirmar un pedido por falta de stock.
+function openStockBlockedModal(
+  order: OrderCardData,
+  missing: { name: string; unit: string; required: number; available: number }[],
+  fallbackMessage?: string
+) {
+  const overlay = document.createElement("div");
+  overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+  const rows = missing
+    .map(
+      (m) =>
+        `<li class="py-1.5 text-sm text-gray-700"><span class="font-semibold">${escapeHtml(m.name)}</span>: necesita ${formatQty(m.required, m.unit)}, hay ${formatQty(m.available, m.unit)}</li>`
+    )
+    .join("");
+  overlay.innerHTML = `
+    <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <h3 class="mb-1 text-base font-bold text-gray-900">No se puede confirmar el pedido #${order.orderNumber}</h3>
+      <p class="mb-3 text-sm text-gray-500">Falta stock para estos productos o ingredientes:</p>
+      ${rows ? `<ul class="mb-3 divide-y divide-gray-100">${rows}</ul>` : `<p class="mb-3 text-sm text-red-600">${escapeHtml(fallbackMessage ?? "Stock insuficiente.")}</p>`}
+      <p class="mb-4 text-xs text-gray-400">Cargá stock en Stock → Ingreso y volvé a aceptar el pedido.</p>
+      <button type="button" data-role="close" class="w-full rounded-md bg-gray-900 py-2.5 text-sm font-bold text-white">Entendido</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector("[data-role='close']")?.addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+// Admin: qué hacer con el stock de un pedido ya descontado que se cancela.
+function openStockDecisionModal(order: OrderCardData, onChoose: (action: "reponer" | "merma") => void) {
+  const overlay = document.createElement("div");
+  overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+  overlay.innerHTML = `
+    <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <h3 class="mb-1 text-base font-bold text-gray-900">Pedido #${order.orderNumber}: ¿qué pasa con el stock?</h3>
+      <p class="mb-4 text-sm text-gray-500">El pedido ya estaba en proceso y su stock fue descontado.</p>
+      <button type="button" data-role="reponer" class="mb-2 w-full rounded-md bg-bechis-yellow py-2.5 text-sm font-bold text-ink">Reponer el stock</button>
+      <button type="button" data-role="merma" class="mb-2 w-full rounded-md border border-gray-200 py-2.5 text-sm font-semibold text-gray-700">Registrar como merma (no se repone)</button>
+      <button type="button" data-role="close" class="w-full rounded-md py-2 text-xs font-medium text-gray-500">No cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector("[data-role='reponer']")?.addEventListener("click", () => {
+    overlay.remove();
+    onChoose("reponer");
+  });
+  overlay.querySelector("[data-role='merma']")?.addEventListener("click", () => {
+    overlay.remove();
+    onChoose("merma");
+  });
+  overlay.querySelector("[data-role='close']")?.addEventListener("click", () => overlay.remove());
 }
 
 const PAYMENT_METHODS: { value: string; label: string }[] = [
