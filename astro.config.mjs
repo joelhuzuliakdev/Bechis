@@ -1,6 +1,6 @@
 import { defineConfig } from "astro/config";
 import tailwind from "@astrojs/tailwind";
-import node from "@astrojs/node";
+import vercel from "@astrojs/vercel/serverless";
 
 // Usamos output "server" porque el panel admin/empleado necesita
 // leer sesión y rol en cada request (middleware) y las API routes
