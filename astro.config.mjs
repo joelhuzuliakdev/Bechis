@@ -9,7 +9,7 @@ import vercel from "@astrojs/vercel/serverless";
 // donde nosotros lo pedimos explícitamente (islas puntuales).
 export default defineConfig({
   output: "server",
-  adapter: node({
+  adapter: vercel({
     mode: "standalone",
   }),
   integrations: [
