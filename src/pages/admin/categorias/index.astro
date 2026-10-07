@@ -1,0 +1,245 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
+
+const profile = Astro.locals.profile!;
+// Solo admin: los empleados no administran categorías.
+if (profile.role !== "admin") return Astro.redirect("/admin/productos");
+
+// Cliente admin (solo servidor, después de validar el rol): así se ven
+// también las categorías ocultas, sin depender de las políticas RLS.
+const admin = createSupabaseAdminClient();
+const [{ data: cats, error: catError }, { data: prods }] = await Promise.all([
+    admin
+        .from("categories")
+        .select("id, name, slug, sort_order, active, icon_emoji, accent_color")
+        .order("sort_order", { ascending: true }),
+    admin.from("products").select("category_id, active"),
+]);
+if (catError) console.error("Error cargando categorías:", catError.message);
+
+const categories = (cats ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    active: c.active,
+    iconEmoji: c.icon_emoji,
+    accentColor: c.accent_color,
+    products: (prods ?? []).filter((p) => p.category_id === c.id).length,
+    activeProducts: (prods ?? []).filter((p) => p.category_id === c.id && p.active).length,
+}));
+---
+
+<AdminLayout title="Categorías" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
+    <div class="mb-5 flex items-center justify-between">
+        <p class="text-sm text-gray-500">Las categorías activas aparecen en el inicio de la tienda, en este orden.</p>
+        <button id="new-category" type="button" class="rounded-md bg-bechis-yellow px-4 py-2 text-sm font-bold text-ink">+ Nueva categoría</button>
+    </div>
+
+    <div id="categories-table" class="overflow-hidden rounded-lg border border-gray-200 bg-white"></div>
+
+    <script type="application/json" id="categories-data" set:html={JSON.stringify(categories)} />
+
+    <script>
+        interface Category {
+            id: string;
+            name: string;
+            slug: string;
+            active: boolean;
+            iconEmoji: string;
+            accentColor: string;
+            products: number;
+            activeProducts: number;
+        }
+
+        // Emojis sugeridos para elegir con un clic (también se puede pegar cualquier otro).
+        const EMOJI_SUGGESTIONS = [
+            "🍔", "🥩", "🥪", "🥙", "🌯", "🌭", "🍟", "🍕", "🍗", "🥓", "🍳", "🥗",
+            "🥤", "🧃", "🍺", "☕", "🍰", "🍨", "🍮", "🍩", "🍫", "🧁", "🍦", "🍽️",
+        ];
+
+        let categories: Category[] = JSON.parse(document.getElementById("categories-data")?.textContent ?? "[]");
+        const container = document.getElementById("categories-table")!;
+
+        function esc(text: string): string {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function toast(message: string) {
+            const el = document.getElementById("toast");
+            if (!el) return;
+            el.textContent = message;
+            el.classList.remove("opacity-0", "translate-y-4");
+            setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2500);
+        }
+
+        async function api(url: string, method: string, body: unknown) {
+            const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            const result = await res.json().catch(() => ({}));
+            return { ok: res.ok, result };
+        }
+
+        function render() {
+            if (categories.length === 0) {
+                container.innerHTML = `<p class="px-4 py-8 text-center text-sm text-gray-400">Todavía no hay categorías.</p>`;
+                return;
+            }
+            container.innerHTML = `
+                <table class="w-full text-left text-sm">
+                    <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                        <tr>
+                            <th class="px-4 py-3">Orden</th>
+                            <th class="px-4 py-3">Categoría</th>
+                            <th class="px-4 py-3 text-right">Productos</th>
+                            <th class="px-4 py-3">Estado</th>
+                            <th class="px-4 py-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        ${categories
+                            .map(
+                                (c, i) => `
+                        <tr data-id="${c.id}" class="${c.active ? "" : "opacity-60"}">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <button data-action="up" ${i === 0 ? "disabled" : ""} class="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-600 disabled:opacity-30">↑</button>
+                                <button data-action="down" ${i === categories.length - 1 ? "disabled" : ""} class="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-600 disabled:opacity-30">↓</button>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex h-9 w-9 items-center justify-center rounded-full text-lg" style="background:${esc(c.accentColor)}33">${esc(c.iconEmoji)}</span>
+                                    <p class="font-medium text-gray-900">${esc(c.name)}</p>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-right text-gray-600">${c.products}</td>
+                            <td class="px-4 py-3">
+                                ${
+                                    c.active
+                                        ? `<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Visible</span>`
+                                        : `<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-500">Oculta</span>`
+                                }
+                            </td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <button data-action="edit" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Editar</button>
+                                <button data-action="toggle" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">${c.active ? "Ocultar" : "Mostrar"}</button>
+                            </td>
+                        </tr>`
+                            )
+                            .join("")}
+                    </tbody>
+                </table>`;
+
+            container.querySelectorAll<HTMLElement>("tr[data-id]").forEach((row) => {
+                const id = row.dataset.id!;
+                row.querySelector("[data-action='up']")?.addEventListener("click", () => move(id, -1));
+                row.querySelector("[data-action='down']")?.addEventListener("click", () => move(id, 1));
+                row.querySelector("[data-action='edit']")?.addEventListener("click", () => openForm(categories.find((c) => c.id === id)));
+                row.querySelector("[data-action='toggle']")?.addEventListener("click", () => toggle(id));
+            });
+        }
+
+        async function move(id: string, delta: number) {
+            const i = categories.findIndex((c) => c.id === id);
+            const j = i + delta;
+            if (i < 0 || j < 0 || j >= categories.length) return;
+            const previous = [...categories];
+            [categories[i], categories[j]] = [categories[j], categories[i]];
+            render();
+            const { ok, result } = await api("/api/categories/reorder", "POST", { ids: categories.map((c) => c.id) });
+            if (!ok) {
+                categories = previous;
+                render();
+                toast(result.error ?? "No se pudo guardar el orden");
+            }
+        }
+
+        async function toggle(id: string) {
+            const c = categories.find((x) => x.id === id)!;
+            const { ok, result } = await api(`/api/categories/${id}`, "PATCH", { active: !c.active });
+            if (!ok) {
+                toast(result.error ?? "No se pudo actualizar");
+                return;
+            }
+            c.active = !c.active;
+            render();
+            toast(c.active ? "Categoría visible" : "Categoría oculta");
+        }
+
+        function openForm(category?: Category) {
+            const editing = !!category;
+            const overlay = document.createElement("div");
+            overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+            overlay.innerHTML = `
+                <div class="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+                    <h3 class="mb-3 text-base font-bold text-gray-900">${editing ? "Editar categoría" : "Nueva categoría"}</h3>
+                    <label class="mb-1 block text-xs font-medium text-gray-500">Nombre</label>
+                    <input data-role="name" type="text" maxlength="40" value="${esc(category?.name ?? "")}" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+                    <label class="mb-1 block text-xs font-medium text-gray-500">Emoji</label>
+                    <input data-role="emoji" type="text" maxlength="8" value="${esc(category?.iconEmoji ?? "🍽️")}" class="mb-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+                    <div class="mb-3 flex flex-wrap gap-1">
+                        ${EMOJI_SUGGESTIONS.map(
+                            (e) => `<button type="button" data-emoji="${e}" class="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 text-lg hover:bg-gray-100">${e}</button>`
+                        ).join("")}
+                    </div>
+                    <label class="mb-1 block text-xs font-medium text-gray-500">Color</label>
+                    <input data-role="color" type="color" value="${esc(category?.accentColor ?? "#FFC629")}" class="mb-3 h-10 w-full rounded-md border border-gray-200" />
+                    <p data-role="error" class="mb-2 text-xs text-red-600"></p>
+                    <div class="flex gap-2">
+                        <button data-role="cancel" type="button" class="flex-1 rounded-md border border-gray-200 py-2 text-sm font-semibold text-gray-600">Cancelar</button>
+                        <button data-role="save" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2 text-sm font-bold text-ink">Guardar</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            const q = <T extends HTMLElement>(role: string) => overlay.querySelector<T>(`[data-role='${role}']`)!;
+            overlay.querySelectorAll<HTMLElement>("[data-emoji]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    q<HTMLInputElement>("emoji").value = btn.dataset.emoji!;
+                });
+            });
+            q("cancel").addEventListener("click", () => overlay.remove());
+            overlay.addEventListener("click", (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            q("save").addEventListener("click", async () => {
+                const body = {
+                    name: q<HTMLInputElement>("name").value.trim(),
+                    iconEmoji: q<HTMLInputElement>("emoji").value.trim(),
+                    accentColor: q<HTMLInputElement>("color").value,
+                };
+                const { ok, result } = editing
+                    ? await api(`/api/categories/${category!.id}`, "PATCH", body)
+                    : await api("/api/categories/create", "POST", body);
+
+                if (!ok) {
+                    q("error").textContent = result.error ?? "No se pudo guardar";
+                    return;
+                }
+
+                if (editing) {
+                    Object.assign(category!, { name: body.name, iconEmoji: body.iconEmoji, accentColor: body.accentColor });
+                } else {
+                    const c = result.category;
+                    categories.push({
+                        id: c.id,
+                        name: c.name,
+                        slug: c.slug,
+                        active: c.active,
+                        iconEmoji: c.icon_emoji,
+                        accentColor: c.accent_color,
+                        products: 0,
+                        activeProducts: 0,
+                    });
+                }
+                overlay.remove();
+                render();
+                toast(editing ? "Categoría actualizada" : "Categoría creada");
+            });
+        }
+
+        document.getElementById("new-category")?.addEventListener("click", () => openForm());
+        render();
+    </script>
+</AdminLayout>

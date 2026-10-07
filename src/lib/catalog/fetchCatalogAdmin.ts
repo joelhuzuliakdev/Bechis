@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export interface AdminProductListItem {
     id: string;
     name: string;
+    categoryId: string | null;
     categoryName: string;
     price: number;
     stock: number;
@@ -51,7 +52,7 @@ export interface GlobalIngredient {
 export async function listProductsAdmin(client: SupabaseClient): Promise<AdminProductListItem[]> {
     const { data, error } = await client
         .from("products")
-        .select("id, name, price, stock, min_stock, active, image_url, categories ( name )")
+        .select("id, name, category_id, price, stock, min_stock, active, image_url, categories ( name )")
         .order("name", { ascending: true });
 
     if (error || !data) return [];
@@ -59,6 +60,7 @@ export async function listProductsAdmin(client: SupabaseClient): Promise<AdminPr
     return data.map((p: any) => ({
         id: p.id,
         name: p.name,
+        categoryId: p.category_id ?? null,
         categoryName: p.categories?.name ?? "—",
         price: p.price,
         stock: p.stock,

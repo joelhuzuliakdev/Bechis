@@ -35,6 +35,8 @@ const NAV_ITEMS: NavItem[] = [
     { label: "Proveedores", href: "/admin/proveedores", icon: "🚚", roles: ["admin"] },
     { label: "Gastos", href: "/admin/gastos", icon: "💸", roles: ["admin"] },
     { label: "Promos", href: "/admin/promos", icon: "🏷️", roles: ["admin", "empleado"] },
+    { label: "Categorías", href: "/admin/categorias", icon: "🗂️", roles: ["admin"] },
+    { label: "Ingredientes", href: "/admin/ingredientes", icon: "🧂", roles: ["admin", "empleado"] },
 ];
 
 const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
