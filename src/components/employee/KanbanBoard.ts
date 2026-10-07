@@ -1,6 +1,7 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { showToast } from "@/stores/toast"; // AJUSTAR si tu export real está en otro lado
 import type { OrderCardData } from "@/lib/orders/fetchOrders";
+import { printTicket } from "@/lib/tickets/printTicket";
 
 // "cancelado" NO tiene columna — un pedido cancelado se saca del tablero
 // (ver moveCard) y se consulta aparte en /empleado/pedidos/cancelados.
@@ -319,11 +320,17 @@ function openCobrarModal(order: OrderCardData, cardEl: HTMLElement) {
       return;
     }
 
+    // La venta ya quedó registrada. Leer la respuesta y el ticket van aparte:
+    // si algo falla ahí (impresora apagada, red), el cobro no se ve afectado.
+    const saleResult = await res.json().catch(() => ({}));
+
     order.paymentStatus = "cobrado";
     cardEl.remove();
     updateColumnCounts();
     showToast(`✓ Venta registrada — Pedido #${order.orderNumber}`);
     overlay.remove();
+
+    if (saleResult?.saleId) printTicket(saleResult.saleId);
   });
 }
 

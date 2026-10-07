@@ -1,0 +1,271 @@
+---
+// Ticket de una venta, pensado para impresora térmica de rollo (58 u 80 mm).
+// - Se adapta solo al ancho de papel que tenga configurado la impresora.
+// - Con ?auto=1 se imprime solo (lo usa el botón Cobrar, dentro de un iframe).
+// - Sin ?auto=1 se ve en pantalla con un botón "Imprimir" (sirve para reimprimir).
+import { getSessionProfile } from "@/lib/auth/session";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { fetchTicketData } from "@/lib/tickets/fetchTicket";
+import { TICKET, PAYMENT_LABELS } from "@/lib/tickets/ticketConfig";
+
+Astro.response.headers.set("Cache-Control", "no-store");
+
+const profile = await getSessionProfile(Astro.cookies);
+if (!profile || !profile.active || !(["admin", "empleado"] as string[]).includes(profile.role)) {
+    return new Response("No autorizado", { status: 401 });
+}
+
+const ticket = await fetchTicketData(createSupabaseAdminClient(), Astro.params.saleId!);
+if (!ticket) {
+    return new Response("Venta no encontrada", { status: 404 });
+}
+
+const autoPrint = Astro.url.searchParams.get("auto") === "1";
+
+const money = (n: number) =>
+    new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+const when = new Intl.DateTimeFormat("es-AR", {
+    timeZone: TICKET.timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+}).format(new Date(ticket.createdAt));
+
+const paymentLabel = PAYMENT_LABELS[ticket.paymentMethod] ?? ticket.paymentMethod;
+const isDelivery = ticket.deliveryType === "envio";
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="noindex" />
+        <title>Ticket venta #{ticket.saleNumber}</title>
+        <style is:global>
+            /* Sin márgenes de página: así el navegador no agrega fecha, URL ni título al papel. */
+            @page {
+                margin: 0;
+            }
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                background: #fff;
+                color: #000;
+            }
+            body {
+                font-family: ui-monospace, "Courier New", Consolas, monospace;
+                font-size: 12px;
+                line-height: 1.35;
+            }
+            /* El ancho lo da el papel de la impresora; acá solo un respiro a los costados. */
+            .ticket {
+                box-sizing: border-box;
+                width: 100%;
+                padding: 3mm 3mm 12mm;
+            }
+            .center {
+                text-align: center;
+            }
+            .brand {
+                margin: 0 0 2px;
+                font-size: 20px;
+                font-weight: 800;
+                letter-spacing: 1px;
+                text-align: center;
+            }
+            .ticket p {
+                margin: 0;
+            }
+            .line {
+                margin: 6px 0;
+                border: 0;
+                border-top: 1px dashed #000;
+            }
+            .row {
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            .row > span:last-child {
+                white-space: nowrap;
+            }
+            .item {
+                margin-bottom: 5px;
+            }
+            .sub {
+                padding-left: 10px;
+            }
+            .total {
+                margin-top: 3px;
+                font-size: 15px;
+                font-weight: 800;
+            }
+            .small {
+                font-size: 10px;
+            }
+            .screen-only {
+                display: none;
+            }
+            /* Vista previa en pantalla: columna angosta como un ticket de 80 mm. */
+            @media screen {
+                body {
+                    background: #e5e7eb;
+                }
+                .ticket {
+                    max-width: 80mm;
+                    margin: 16px auto;
+                    background: #fff;
+                    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+                }
+                .screen-only {
+                    display: block;
+                    text-align: center;
+                    margin-bottom: 24px;
+                }
+                .screen-only button {
+                    padding: 10px 22px;
+                    border: 0;
+                    border-radius: 6px;
+                    background: #facc15;
+                    font-weight: 700;
+                    font-size: 14px;
+                    cursor: pointer;
+                }
+            }
+            @media print {
+                .screen-only {
+                    display: none !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="ticket">
+            <h1 class="brand">{TICKET.businessName}</h1>
+            {TICKET.headerLines.map((l) => <p class="center">{l}</p>)}
+
+            <hr class="line" />
+
+            <p>
+                Venta #{ticket.saleNumber}
+                {ticket.orderNumber !== null && <> · Pedido #{ticket.orderNumber}</>}
+            </p>
+            <p>{when}</p>
+            {ticket.customerName && <p>Cliente: {ticket.customerName}</p>}
+            {
+                isDelivery ? (
+                    <>
+                        <p>Envío{ticket.deliveryZoneName ? ` — ${ticket.deliveryZoneName}` : ""}</p>
+                        {ticket.address && <p>{ticket.address}</p>}
+                    </>
+                ) : ticket.deliveryType ? (
+                    <p>Retiro en el local</p>
+                ) : null
+            }
+
+            <hr class="line" />
+
+            {
+                ticket.items.map((it) => (
+                    <div class="item">
+                        <div class="row">
+                            <span>
+                                {it.quantity}x {it.name}
+                            </span>
+                            <span>{money(it.lineTotal)}</span>
+                        </div>
+                        {it.quantity > 1 && <p class="sub small">{money(it.unitPrice)} c/u</p>}
+                        {it.removed.map((n) => <p class="sub">- Sin {n}</p>)}
+                        {it.added.map((n) => <p class="sub">+ Extra {n}</p>)}
+                    </div>
+                ))
+            }
+
+            <hr class="line" />
+
+            <div class="row">
+                <span>Subtotal</span>
+                <span>{money(ticket.subtotal)}</span>
+            </div>
+            {
+                ticket.deliveryCost > 0 && (
+                    <div class="row">
+                        <span>Envío</span>
+                        <span>{money(ticket.deliveryCost)}</span>
+                    </div>
+                )
+            }
+            {
+                ticket.discount > 0 && (
+                    <div class="row">
+                        <span>Descuento</span>
+                        <span>-{money(ticket.discount)}</span>
+                    </div>
+                )
+            }
+            <div class="row total">
+                <span>TOTAL</span>
+                <span>{money(ticket.total)}</span>
+            </div>
+
+            <hr class="line" />
+
+            <div class="row">
+                <span>Forma de pago</span>
+                <span>{paymentLabel}</span>
+            </div>
+            {
+                ticket.paymentMethod === "efectivo" && ticket.receivedAmount !== null && (
+                    <>
+                        <div class="row">
+                            <span>Recibido</span>
+                            <span>{money(ticket.receivedAmount)}</span>
+                        </div>
+                        {ticket.changeAmount !== null && (
+                            <div class="row">
+                                <span>Vuelto</span>
+                                <span>{money(Math.max(0, ticket.changeAmount))}</span>
+                            </div>
+                        )}
+                    </>
+                )
+            }
+
+            <hr class="line" />
+
+            {TICKET.footerLines.map((l) => <p class="center">{l}</p>)}
+            <p class="center small">{TICKET.legalLine}</p>
+        </main>
+
+        <div class="screen-only">
+            <button type="button" id="btn-print">Imprimir ticket</button>
+        </div>
+
+        <script is:inline define:vars={{ autoPrint }}>
+            document.getElementById("btn-print")?.addEventListener("click", function () {
+                window.print();
+            });
+
+            // Dentro del iframe de Cobrar: avisar al terminar para que se quite el iframe.
+            window.addEventListener("afterprint", function () {
+                if (window.parent !== window) {
+                    window.parent.postMessage({ type: "bechis-ticket-done" }, window.location.origin);
+                }
+            });
+
+            if (autoPrint) {
+                window.addEventListener("load", function () {
+                    setTimeout(function () {
+                        window.print();
+                    }, 300);
+                });
+            }
+        </script>
+    </body>
+</html>
