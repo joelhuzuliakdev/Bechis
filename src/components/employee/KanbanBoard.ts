@@ -2,6 +2,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { showToast } from "@/stores/toast"; // AJUSTAR si tu export real está en otro lado
 import type { OrderCardData } from "@/lib/orders/fetchOrders";
 import { printTicket } from "@/lib/tickets/printTicket";
+import { initOrderAlerts } from "@/lib/orders/newOrderAlert";
 
 // "cancelado" NO tiene columna — un pedido cancelado se saca del tablero
 // (ver moveCard) y se consulta aparte en /empleado/pedidos/cancelados.
@@ -87,6 +88,7 @@ function renderCancelLink(order: OrderCardData): string {
 function buildCardEl(order: OrderCardData): HTMLElement {
   const card = document.createElement("div");
   card.dataset.orderId = order.id;
+  card.dataset.seenAt = String(Date.now());
   card.className = "mb-3 rounded-lg border border-gray-200 bg-white p-3.5 shadow-sm";
   card.innerHTML = `
     <div class="mb-2 flex items-start justify-between">
@@ -379,7 +381,63 @@ function updateColumnCounts() {
   });
 }
 
+// Pone el tablero al día con la lista de pedidos activos que trae newOrderAlert.ts
+// al abrir la página ("baseline": solo agrega los que falten) o tras una reconexión
+// ("reconnect": además quita los que ya no están y corrige columnas).
+// Nunca toca una tarjeta dibujada DESPUÉS de pedir la lista, porque un evento en
+// vivo más reciente manda sobre esa lista.
+function reconcileBoard(detail: { orders: OrderCardData[]; requestedAt: number; mode: "baseline" | "reconnect" }) {
+  const { orders, requestedAt, mode } = detail;
+  const activeIds = new Set(orders.map((o) => o.id));
+
+  if (mode === "reconnect") {
+    document.querySelectorAll<HTMLElement>("[data-order-id]").forEach((el) => {
+      const seenAt = Number(el.dataset.seenAt ?? 0);
+      if (!activeIds.has(el.dataset.orderId ?? "") && seenAt < requestedAt) el.remove();
+    });
+  }
+
+  for (const order of orders) {
+    const existing = document.querySelector<HTMLElement>(`[data-order-id='${order.id}']`);
+    if (!existing) {
+      moveCard(order);
+      continue;
+    }
+    if (mode === "reconnect") {
+      const seenAt = Number(existing.dataset.seenAt ?? 0);
+      if (seenAt < requestedAt && existing.parentElement?.id !== STATUS_TO_COLUMN[order.status]) {
+        moveCard(order, existing);
+      }
+    }
+  }
+  updateColumnCounts();
+}
+
 export async function attachKanbanBoard(initialOrdersJson: string) {
+  // Si por cualquier motivo se llama dos veces, no se registran dos veces los listeners.
+  const w = window as any;
+  if (w.__bechisKanbanAttached) return;
+  w.__bechisKanbanAttached = true;
+
+  // Pedidos nuevos: el aviso (cartel + sonido) y la suscripción a INSERT viven en
+  // newOrderAlert.ts, que corre en todo el panel. Acá solo se agrega la tarjeta.
+  // Se registra antes de cualquier "await" para no perder eventos.
+  window.addEventListener("bechis:new-order", async (e) => {
+    const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+    if (!id || document.querySelector(`[data-order-id='${id}']`)) return;
+    const res = await fetch(`/api/orders/${id}`);
+    if (!res.ok) return;
+    const order: OrderCardData = await res.json();
+    moveCard(order);
+  });
+  window.addEventListener("bechis:orders-resync", (e) => {
+    reconcileBoard((e as CustomEvent).detail);
+  });
+
+  // Idempotente: si el layout ya lo arrancó, no hace nada. Si el layout falló,
+  // el Kanban sigue recibiendo pedidos nuevos igual.
+  void initOrderAlerts();
+
   let initialOrders: OrderCardData[] = [];
   try {
     initialOrders = JSON.parse(initialOrdersJson);
@@ -405,13 +463,6 @@ export async function attachKanbanBoard(initialOrdersJson: string) {
 
   supabaseBrowser
     .channel("orders-changes")
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, async (payload) => {
-      const res = await fetch(`/api/orders/${payload.new.id}`);
-      if (!res.ok) return;
-      const order: OrderCardData = await res.json();
-      moveCard(order);
-      showToast(`🔔 Nuevo pedido #${order.orderNumber}`);
-    })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, async (payload) => {
       const existingEl = document.querySelector<HTMLElement>(`[data-order-id='${payload.new.id}']`);
 

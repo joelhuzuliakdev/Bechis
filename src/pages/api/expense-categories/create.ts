@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 import { createExpenseCategorySchema } from "@/lib/validators/expenseSchema";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+    const auth = await requireRole(cookies, ["admin"]);
+    if (!auth.ok) return auth.response;
+
     const supabase = createSupabaseServerClient(cookies);
 
     let body: unknown;

@@ -22,7 +22,10 @@ const currentPath = Astro.url.pathname;
     <link rel="icon" type="image/png" href="/logoBechis.png" />
     <title>{title} — Panel Bechis</title>
   </head>
-  <body class="bg-gray-50 text-gray-900">
+  <body
+     class="bg-gray-50 text-gray-900"
+     data-session-user={Astro.locals.profile?.id ?? ""}
+   >
     <div class="flex min-h-screen">
       <Sidebar role={role} currentPath={currentPath} />
 
@@ -39,5 +42,11 @@ const currentPath = Astro.url.pathname;
       class="pointer-events-none fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 translate-y-4 whitespace-nowrap rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white opacity-0 shadow-lg transition-all duration-200"
     >
     </div>
+  <script>
+     import { initOrderAlerts } from "@/lib/orders/newOrderAlert";
+     import { initSessionGuard } from "@/lib/auth/sessionGuard";
+     initSessionGuard();
+     initOrderAlerts();
+   </script>
   </body>
 </html>

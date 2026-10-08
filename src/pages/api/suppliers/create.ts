@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 import { supplierSchema } from "@/lib/validators/supplierSchema";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireRole(cookies, ["admin"]);
+  if (!auth.ok) return auth.response;
+
   const supabase = createSupabaseServerClient(cookies);
 
   let body: unknown;
@@ -30,7 +34,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       phone: phone ?? null,
       email: email ?? null,
       cuit: cuit ?? null,
-     address: address ?? null,
+      address: address ?? null,
       notes: notes ?? null,
     })
     .select("id")

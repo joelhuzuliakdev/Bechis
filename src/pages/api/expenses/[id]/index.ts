@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 import { updateExpenseSchema } from "@/lib/validators/expenseSchema";
 
 export const PATCH: APIRoute = async ({ params, request, cookies }) => {
+    const auth = await requireRole(cookies, ["admin"]);
+    if (!auth.ok) return auth.response;
+
     const id = params.id;
     if (!id) {
         return new Response(JSON.stringify({ error: "Falta el id" }), { status: 400 });
@@ -45,6 +49,9 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 };
 
 export const DELETE: APIRoute = async ({ params, cookies }) => {
+    const auth = await requireRole(cookies, ["admin"]);
+    if (!auth.ok) return auth.response;
+
     const id = params.id;
     if (!id) {
         return new Response(JSON.stringify({ error: "Falta el id" }), { status: 400 });

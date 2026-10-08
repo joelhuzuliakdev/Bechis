@@ -21,6 +21,27 @@ const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
             <p class="text-xs text-white/50">Ingresá con el email y contraseña que te dio el administrador.</p>
         </div>
 
+        <!-- Aviso: ya hay una sesión abierta en este navegador. Se muestra en lugar del formulario. -->
+        <div id="active-session" class="hidden">
+            <p class="mb-1 text-sm text-white/70">Ya hay una sesión iniciada en este navegador:</p>
+            <p id="active-session-who" class="mb-4 text-sm font-bold text-white"></p>
+            <button
+                id="active-session-continue"
+                type="button"
+                class="mb-2 w-full rounded-md bg-bechis-yellow px-4 py-3 text-sm font-bold text-ink"
+            >
+                Continuar al panel
+            </button>
+            <button
+                id="active-session-switch"
+                type="button"
+                class="w-full rounded-md border border-white/20 px-4 py-3 text-sm font-semibold text-white"
+            >
+                Cerrar esa sesión y entrar con otra cuenta
+            </button>
+        </div>
+
+        <div id="login-form" class="hidden">
         <div class="mb-3">
             <label class="mb-1 block text-xs font-medium text-white/70">Email</label>
             <input
@@ -52,6 +73,7 @@ const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
             Ingresar
         </button>
         </div>
+        </div>
 
         <script define:vars={{ nextParam }}>
         window.__BECHIS_LOGIN_NEXT__ = nextParam;
@@ -59,10 +81,40 @@ const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
         <script>
         import { supabaseBrowser } from "@/lib/supabase/client";
 
+        const formEl = document.getElementById("login-form");
+        const sessionEl = document.getElementById("active-session");
+        const sessionWhoEl = document.getElementById("active-session-who");
+        const continueBtn = document.getElementById("active-session-continue");
+        const switchBtn = document.getElementById("active-session-switch");
         const emailInput = document.getElementById("email");
         const passwordInput = document.getElementById("password");
         const errorEl = document.getElementById("login-error");
         const submitBtn = document.getElementById("login-submit");
+
+        // Solo se acepta volver a una ruta interna del panel. Cualquier otra cosa
+        // (otro sitio, "//otro.com", "javascript:", etc.) se ignora: si no, alguien
+        // podría mandar un link /login?next=https://sitio-malo.com a un admin.
+        function safeNext(raw) {
+            if (typeof raw !== "string" || !raw.startsWith("/")) return null;
+            if (raw.startsWith("//") || raw.includes("\\") || /[\u0000-\u001f]/.test(raw)) return null;
+            try {
+                const u = new URL(raw, window.location.origin);
+                if (u.origin !== window.location.origin) return null;
+            } catch {
+                return null;
+            }
+            const path = raw.split(/[?#]/)[0];
+            const isPanel = ["/admin", "/empleado"].some((p) => path === p || path.startsWith(p + "/"));
+            return isPanel ? raw : null;
+        }
+
+        // A dónde mandar a cada rol. Si venía de una ruta concreta, vuelve ahí; el
+        // middleware igual lo redirige si su rol no puede entrar.
+        function destination(role) {
+            const next = safeNext(window.__BECHIS_LOGIN_NEXT__);
+            if (next && next !== "/admin") return next;
+            return role === "admin" ? "/admin" : "/empleado/pedidos";
+        }
 
         async function handleLogin() {
             const email = emailInput.value.trim();
@@ -96,18 +148,14 @@ const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
 
             if (!profile || !profile.active) {
             showError("Tu cuenta no está activa. Consultá con el administrador.");
-            await supabaseBrowser.auth.signOut();
+            // "local": cierra solo esta sesión, no las del mismo usuario en otros dispositivos.
+            await supabaseBrowser.auth.signOut({ scope: "local" });
             submitBtn.disabled = false;
             submitBtn.textContent = "Ingresar";
             return;
             }
 
-            const next = window.__BECHIS_LOGIN_NEXT__;
-            if (profile.role === "admin") {
-            window.location.href = next && next !== "/admin" ? next : "/admin";
-            } else {
-            window.location.href = "/empleado/pedidos";
-            }
+            window.location.href = destination(profile.role);
         }
 
         function showError(message) {
@@ -115,10 +163,53 @@ const nextParam = Astro.url.searchParams.get("next") ?? "/admin";
             errorEl.classList.remove("hidden");
         }
 
+        // Si este navegador ya tiene una sesión válida, no la pisamos en silencio:
+        // mostramos de quién es y dejamos elegir. Si algo falla al comprobarlo,
+        // se muestra el formulario normal.
+        async function checkExistingSession() {
+            let showingSession = false;
+            try {
+                const {
+                    data: { session },
+                } = await supabaseBrowser.auth.getSession();
+                if (session) {
+                    const { data: userData, error } = await supabaseBrowser.auth.getUser();
+                    if (!error && userData.user) {
+                        const { data: profile } = await supabaseBrowser
+                            .from("profiles")
+                            .select("full_name, role, active")
+                            .eq("id", userData.user.id)
+                            .maybeSingle();
+                        if (profile && profile.active) {
+                            const roleLabel = profile.role === "admin" ? "administrador" : "empleado";
+                            sessionWhoEl.textContent = `${profile.full_name} (${roleLabel})`;
+                            continueBtn.addEventListener("click", () => {
+                                window.location.href = destination(profile.role);
+                            });
+                            switchBtn.addEventListener("click", async () => {
+                                switchBtn.disabled = true;
+                                await supabaseBrowser.auth.signOut({ scope: "local" });
+                                sessionEl.classList.add("hidden");
+                                formEl.classList.remove("hidden");
+                                emailInput.focus();
+                            });
+                            sessionEl.classList.remove("hidden");
+                            showingSession = true;
+                        }
+                    }
+                }
+            } catch {
+                // Sin poder comprobar la sesión, se muestra el formulario.
+            }
+            if (!showingSession) formEl.classList.remove("hidden");
+        }
+
         submitBtn.addEventListener("click", handleLogin);
         passwordInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") handleLogin();
         });
+
+        checkExistingSession();
         </script>
     </body>
 </html>

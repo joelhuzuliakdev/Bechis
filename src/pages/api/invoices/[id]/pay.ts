@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 import { payInvoiceSchema } from "@/lib/validators/invoiceSchema";
 
 export const POST: APIRoute = async ({ params, request, cookies }) => {
+  const auth = await requireRole(cookies, ["admin"]);
+  if (!auth.ok) return auth.response;
+
   const id = params.id;
   if (!id) {
     return new Response(JSON.stringify({ error: "Falta el id" }), { status: 400 });

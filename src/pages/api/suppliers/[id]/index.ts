@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 import { supplierPatchSchema } from "@/lib/validators/supplierSchema";
 
 export const PATCH: APIRoute = async ({ params, request, cookies }) => {
+  const auth = await requireRole(cookies, ["admin"]);
+  if (!auth.ok) return auth.response;
+
   const id = params.id;
   if (!id) {
     return new Response(JSON.stringify({ error: "Falta el id" }), { status: 400 });
@@ -25,11 +29,7 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     );
   }
 
-  const { address, active, ...rest } = parsed.data;
-
-  const update: Record<string, unknown> = { ...rest };
-  if (address !== undefined) update.address = address;
-  if (active !== undefined) update.active = active;
+  const update: Record<string, unknown> = { ...parsed.data };
 
   if (Object.keys(update).length === 0) {
     return new Response(JSON.stringify({ error: "No hay nada para actualizar" }), { status: 400 });
