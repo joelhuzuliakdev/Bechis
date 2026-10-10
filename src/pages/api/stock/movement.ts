@@ -1,70 +1,63 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getSessionProfile } from "@/lib/auth/session";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/requireRole";
 
 const bodySchema = z.object({
     target: z.enum(["producto", "ingrediente"]),
     itemId: z.string().uuid(),
     type: z.enum(["ingreso", "egreso", "correccion"]),
-    // Para ingreso/egreso: cuánto sumar o restar. Para corrección: el
-    // valor NUEVO y correcto del stock (no una diferencia).
-    quantity: z.number().nonnegative(),
+    // Siempre en la UNIDAD BASE del item (gramos, ml o unidades): la pantalla
+    // convierte los kilos a gramos antes de mandar. Para ingreso/egreso: cuánto
+    // sumar o restar. Para corrección: el valor NUEVO y correcto del stock.
+    quantity: z.number().finite().nonnegative(),
     reason: z.string().trim().max(200).optional(),
 });
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-    const profile = await getSessionProfile(cookies);
-    if (!profile || !profile.active) return json({ error: "No autorizado" }, 401);
+    const auth = await requireRole(cookies, ["admin", "empleado"]);
+    if (!auth.ok) return auth.response;
 
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
     const { target, itemId, type, quantity, reason } = parsed.data;
 
-    const supabase = createSupabaseServerClient(cookies);
-    const table = target === "producto" ? "products" : "ingredients";
-
-    const { data: item, error: fetchError } = await supabase.from(table).select("stock").eq("id", itemId).maybeSingle();
-    if (fetchError || !item) return json({ error: "No se encontró el producto/ingrediente" }, 404);
-
-    const currentStock = item.stock as number;
-    let newStock: number;
-    let movementQuantity: number;
-
-    if (type === "ingreso") {
-        newStock = currentStock + quantity;
-        movementQuantity = quantity;
-    } else if (type === "egreso") {
-        newStock = Math.max(0, currentStock - quantity);
-        movementQuantity = quantity;
-    } else {
-        // corrección: `quantity` es el nuevo valor absoluto.
-        newStock = quantity;
-        movementQuantity = Math.abs(quantity - currentStock);
-    }
-
-    const { error: updateError } = await supabase.from(table).update({ stock: newStock }).eq("id", itemId);
-    if (updateError) {
-        console.error("Error actualizando stock:", updateError.message);
-        return json({ error: "No se pudo actualizar el stock" }, 500);
-    }
-
-    const movementReason =
-        type === "correccion" ? `Corrección: ${currentStock} → ${newStock}${reason ? ` (${reason})` : ""}` : reason ?? null;
-
-    const { error: movementError } = await supabase.from("stock_movements").insert({
-        target,
-        product_id: target === "producto" ? itemId : null,
-        ingredient_id: target === "ingrediente" ? itemId : null,
-        type,
-        quantity: movementQuantity,
-        reason: movementReason,
-        user_id: profile.id,
+    // El movimiento lo hace la función de la base (apply_stock_movement): bloquea
+    // la fila, valida y deja el historial en una sola transacción. Solo la puede
+    // ejecutar el servidor, por eso se usa el cliente admin, después de validar el rol.
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc("apply_stock_movement", {
+        p_target: target,
+        p_item_id: itemId,
+        p_type: type,
+        p_quantity: quantity,
+        p_reason: reason ?? null,
+        p_user_id: auth.profile.id,
     });
 
-    if (movementError) console.error("Error registrando movimiento:", movementError.message);
+    if (error) {
+        console.error("Error registrando movimiento de stock:", error.message);
+        return json({ error: "No se pudo registrar el movimiento" }, 500);
+    }
 
-    return json({ newStock });
+    const result = data as { ok: boolean; code?: string; newStock?: number; available?: number } | null;
+    if (!result || !result.ok) {
+        switch (result?.code) {
+            case "invalid_quantity":
+                return json({ error: "La cantidad tiene que ser mayor a 0.", code: result.code }, 400);
+            case "insufficient_stock":
+                return json(
+                    { error: "No hay stock suficiente para ese egreso.", code: result.code, available: result.available },
+                    409
+                );
+            case "not_found":
+                return json({ error: "No se encontró el producto/ingrediente", code: result.code }, 404);
+            default:
+                return json({ error: "No se pudo registrar el movimiento", code: result?.code }, 400);
+        }
+    }
+
+    return json({ newStock: result.newStock });
 };
 
 function json(body: unknown, status = 200): Response {

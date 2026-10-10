@@ -6,6 +6,9 @@ export const productIngredientConfigSchema = z.object({
     isRemovable: z.boolean().default(true),
     isAddableExtra: z.boolean().default(false),
     priceOverride: z.number().nonnegative().nullable().optional(),
+    // Cuánto de este ingrediente consume UNA unidad del producto, en la unidad
+    // del ingrediente (ej. 2 medallones, 180 g de lomo). null = no descuenta.
+    quantityPerUnit: z.number().positive().nullable().optional(),
 });
 
 export const productSchema = z.object({
@@ -20,8 +23,12 @@ export const productSchema = z.object({
     description: z.string().trim().max(500).optional(),
     price: z.number().nonnegative(),
     imageUrl: z.string().url().nullable().optional(),
+    // Solo se usa al CREAR (stock inicial). Después el stock se mueve únicamente
+    // desde la pantalla Stock, para que quede en el historial.
     stock: z.number().nonnegative().default(0),
     minStock: z.number().nonnegative().default(0),
+    // ¿Lleva stock propio? false = se arma con ingredientes y descuenta de ellos.
+    trackStock: z.boolean().default(true),
     active: z.boolean().default(true),
     ingredients: z.array(productIngredientConfigSchema).default([]),
 });
@@ -31,12 +38,18 @@ export type ProductInput = z.infer<typeof productSchema>;
 // Update parcial: no todos los campos son obligatorios al editar.
 export const productUpdateSchema = productSchema.partial();
 
+export const stockUnitSchema = z.enum(["unidad", "g", "ml"]);
+
 export const ingredientSchema = z.object({
     name: z.string().trim().min(2).max(80),
     extraPrice: z.number().nonnegative().default(0),
+    unit: stockUnitSchema.default("unidad"),
+    // Cuánto consume UN extra agregado por el cliente, en la unidad del ingrediente.
+    extraQuantity: z.number().nonnegative().default(1),
+    // Solo se usa al CREAR (stock inicial, en la unidad base). Después se mueve desde Stock.
     stock: z.number().nonnegative().default(0),
     minStock: z.number().nonnegative().default(0),
     active: z.boolean().default(true),
 });
 
-export const ingredientUpdateSchema = ingredientSchema.partial();
+export const ingredientUpdateSchema = ingredientSchema.omit({ stock: true }).partial();

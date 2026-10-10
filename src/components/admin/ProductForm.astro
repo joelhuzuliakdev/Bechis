@@ -1,5 +1,6 @@
 ---
 import type { AdminProductDetail, CategoryOption, GlobalIngredient } from "@/lib/catalog/fetchCatalogAdmin";
+import { UNIT_LABEL } from "@/lib/stock/units";
 
 export interface Props {
     mode: "create" | "edit";
@@ -47,19 +48,43 @@ function configFor(ingredientId: string) {
         ))}
         </select>
 
-        <div class="mb-3 grid grid-cols-3 gap-2">
-        <div>
+        <div class="mb-3">
             <label class="mb-1 block text-xs font-medium text-gray-500">Precio</label>
             <input name="price" type="number" min="0" step="1" value={product?.price ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
         </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500">Stock</label>
-            <input name="stock" type="number" min="0" step="1" value={product?.stock ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500">Stock mínimo</label>
-            <input name="minStock" type="number" min="0" step="1" value={product?.minStock ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
-        </div>
+
+        <label class="mb-2 flex items-start gap-2 text-sm text-gray-700">
+            <input name="trackStock" type="checkbox" checked={product?.trackStock ?? true} class="mt-0.5 accent-bechis-yellow" />
+            <span>
+                Lleva stock propio
+                <span class="block text-xs text-gray-400">
+                    Dejalo marcado para bebidas, postres y productos que se cuentan por unidad. Desmarcalo si el producto se
+                    arma con ingredientes (hamburguesas, lomitos, papas): en ese caso descuenta de sus ingredientes.
+                </span>
+            </span>
+        </label>
+
+        <div data-role="stock-fields" class="mb-3 grid grid-cols-2 gap-2">
+            <div>
+                {
+                    mode === "create" ? (
+                        <>
+                            <label class="mb-1 block text-xs font-medium text-gray-500">Stock inicial</label>
+                            <input name="stock" type="number" min="0" step="1" value="0" class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+                        </>
+                    ) : (
+                        <>
+                            <label class="mb-1 block text-xs font-medium text-gray-500">Stock actual</label>
+                            <p class="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">{product?.stock ?? 0}</p>
+                            <p class="mt-1 text-[11px] text-gray-400">Se cambia desde la pantalla Stock.</p>
+                        </>
+                    )
+                }
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-500">Stock mínimo</label>
+                <input name="minStock" type="number" min="0" step="1" value={product?.minStock ?? 0} class="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+            </div>
         </div>
 
         <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -70,9 +95,13 @@ function configFor(ingredientId: string) {
 
     <div class="mb-4 rounded-lg border border-gray-200 bg-white p-4">
         <h3 class="mb-1 text-sm font-semibold text-gray-900">Ingredientes</h3>
-        <p class="mb-3 text-xs text-gray-400">
+        <p class="mb-1 text-xs text-gray-400">
         Incluido = viene de fábrica. Removible = el cliente lo puede sacar (nunca resta precio). Extra = se puede
         agregar pagando un adicional.
+        </p>
+        <p class="mb-3 text-xs text-gray-400">
+        <strong class="text-gray-500">Consume por unidad</strong> = cuánto de ese ingrediente se descuenta del stock
+        cada vez que se vende UNA unidad de este producto (ej. 2 medallones, 180 g de lomo). Vacío = no descuenta.
         </p>
 
         {ingredients.length === 0 && <p class="text-xs text-gray-400">No hay ingredientes cargados todavía.</p>}
@@ -86,6 +115,7 @@ function configFor(ingredientId: string) {
                 <th class="px-2 py-1.5 text-center">Removible</th>
                 <th class="px-2 py-1.5 text-center">Extra</th>
                 <th class="py-1.5 pl-2">Precio extra</th>
+                <th class="py-1.5 pl-2">Consume por unidad</th>
             </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -116,6 +146,18 @@ function configFor(ingredientId: string) {
                         value={cfg?.priceOverride ?? ""}
                         class="w-24 rounded-md border border-gray-200 px-2 py-1"
                     />
+                    </td>
+                    <td class="py-2 pl-2 whitespace-nowrap">
+                    <input
+                        data-role="qty-per-unit"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="—"
+                        value={cfg?.quantityPerUnit ?? ""}
+                        class="w-20 rounded-md border border-gray-200 px-2 py-1"
+                    />
+                    <span class="ml-1 text-gray-400">{UNIT_LABEL[ing.unit]}</span>
                     </td>
                 </tr>
                 );
@@ -177,6 +219,15 @@ function configFor(ingredientId: string) {
         if (!slugTouched && slugInput) slugInput.value = slugify(nameInput.value);
     });
 
+    // Los campos de stock solo se ven si el producto lleva stock propio.
+    const trackStockInput = root.querySelector<HTMLInputElement>("[name='trackStock']")!;
+    const stockFields = root.querySelector<HTMLElement>("[data-role='stock-fields']")!;
+    function syncStockFields() {
+        stockFields.classList.toggle("hidden", !trackStockInput.checked);
+    }
+    trackStockInput.addEventListener("change", syncStockFields);
+    syncStockFields();
+
     root.querySelector("[data-role='submit']")?.addEventListener("click", async () => {
         const errorEl = root.querySelector<HTMLElement>("[data-role='form-error']")!;
         errorEl.textContent = "";
@@ -203,7 +254,7 @@ function configFor(ingredientId: string) {
         }
 
         // 2. Armar la configuración de ingredientes (solo los que
-        // tienen algo relevante marcado; el resto no se manda).
+        // tienen algo relevante: incluido, extra o con consumo; el resto no se manda).
         const ingredientRows = Array.from(root.querySelectorAll<HTMLElement>("[data-ingredient-row]"))
             .map((row) => {
             const ingredientId = row.dataset.ingredientId!;
@@ -211,30 +262,36 @@ function configFor(ingredientId: string) {
             const isRemovable = row.querySelector<HTMLInputElement>("[data-role='removable']")!.checked;
             const isAddableExtra = row.querySelector<HTMLInputElement>("[data-role='extra']")!.checked;
             const priceRaw = row.querySelector<HTMLInputElement>("[data-role='price-override']")!.value;
+            const qtyRaw = Number(row.querySelector<HTMLInputElement>("[data-role='qty-per-unit']")!.value);
             return {
                 ingredientId,
                 isIncluded,
                 isRemovable,
                 isAddableExtra,
                 priceOverride: priceRaw ? Number(priceRaw) : null,
+                quantityPerUnit: qtyRaw > 0 ? qtyRaw : null,
             };
             })
-            .filter((r) => r.isIncluded || r.isAddableExtra);
+            .filter((r) => r.isIncluded || r.isAddableExtra || r.quantityPerUnit !== null);
 
-        const payload = {
+        const payload: Record<string, unknown> = {
             categoryId: (root.querySelector("[name='categoryId']") as HTMLSelectElement).value,
             name: (root.querySelector("[name='name']") as HTMLInputElement).value.trim(),
             slug: (root.querySelector("[name='slug']") as HTMLInputElement).value.trim(),
             description: (root.querySelector("[name='description']") as HTMLTextAreaElement).value.trim() || undefined,
             price: Number((root.querySelector("[name='price']") as HTMLInputElement).value || 0),
             imageUrl,
-            stock: Number((root.querySelector("[name='stock']") as HTMLInputElement).value || 0),
             minStock: Number((root.querySelector("[name='minStock']") as HTMLInputElement).value || 0),
+            trackStock: trackStockInput.checked,
             active: (root.querySelector("[name='active']") as HTMLInputElement).checked,
             ingredients: ingredientRows,
         };
+        // El stock inicial solo existe al crear; al editar, el stock se mueve desde la pantalla Stock.
+        if (mode === "create") {
+            payload.stock = Number((root.querySelector("[name='stock']") as HTMLInputElement).value || 0);
+        }
 
-        if (payload.name.length < 2 || !payload.slug) {
+        if ((payload.name as string).length < 2 || !payload.slug) {
             errorEl.textContent = "Completá al menos el nombre y el slug.";
             submitBtn.disabled = false;
             submitBtn.textContent = mode === "create" ? "Crear producto" : "Guardar cambios";

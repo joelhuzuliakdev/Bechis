@@ -9,14 +9,22 @@ if (profile.role !== "admin") return Astro.redirect("/admin/productos");
 // Cliente admin (solo servidor, después de validar el rol): así se ven
 // también las categorías ocultas, sin depender de las políticas RLS.
 const admin = createSupabaseAdminClient();
-const [{ data: cats, error: catError }, { data: prods }] = await Promise.all([
+const [{ data: cats, error: catError }, { data: prods }, rulesRes, { data: ings }] = await Promise.all([
     admin
         .from("categories")
         .select("id, name, slug, sort_order, active, icon_emoji, accent_color")
         .order("sort_order", { ascending: true }),
     admin.from("products").select("category_id, active"),
+    admin.from("category_stock_rules").select("category_id, ingredient_id, quantity_per_unit"),
+    admin.from("ingredients").select("id, name, unit, active").order("name"),
 ]);
 if (catError) console.error("Error cargando categorías:", catError.message);
+
+// Si la tabla de reglas todavía no existe (migración 0018 sin ejecutar), la
+// pantalla sigue funcionando y simplemente no muestra el consumo por categoría.
+const rulesAvailable = !rulesRes.error;
+if (rulesRes.error) console.error("Reglas de consumo no disponibles:", rulesRes.error.message);
+const rules = rulesRes.data ?? [];
 
 const categories = (cats ?? []).map((c) => ({
     id: c.id,
@@ -27,7 +35,12 @@ const categories = (cats ?? []).map((c) => ({
     accentColor: c.accent_color,
     products: (prods ?? []).filter((p) => p.category_id === c.id).length,
     activeProducts: (prods ?? []).filter((p) => p.category_id === c.id && p.active).length,
+    rules: rules
+        .filter((r) => r.category_id === c.id)
+        .map((r) => ({ ingredientId: r.ingredient_id, quantityPerUnit: Number(r.quantity_per_unit) })),
 }));
+
+const ingredients = (ings ?? []).map((i) => ({ id: i.id, name: i.name, unit: i.unit ?? "unidad", active: i.active }));
 ---
 
 <AdminLayout title="Categorías" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
@@ -39,8 +52,16 @@ const categories = (cats ?? []).map((c) => ({
     <div id="categories-table" class="overflow-hidden rounded-lg border border-gray-200 bg-white"></div>
 
     <script type="application/json" id="categories-data" set:html={JSON.stringify(categories)} />
+    <script type="application/json" id="stock-rules-data" set:html={JSON.stringify({ available: rulesAvailable, ingredients })} />
 
     <script>
+        import { formatQty, UNIT_LABEL, type StockUnit } from "@/lib/stock/units";
+
+        interface CategoryRule {
+            ingredientId: string;
+            quantityPerUnit: number;
+        }
+
         interface Category {
             id: string;
             name: string;
@@ -50,6 +71,14 @@ const categories = (cats ?? []).map((c) => ({
             accentColor: string;
             products: number;
             activeProducts: number;
+            rules: CategoryRule[];
+        }
+
+        interface IngredientOption {
+            id: string;
+            name: string;
+            unit: StockUnit;
+            active: boolean;
         }
 
         // Emojis sugeridos para elegir con un clic (también se puede pegar cualquier otro).
@@ -59,6 +88,9 @@ const categories = (cats ?? []).map((c) => ({
         ];
 
         let categories: Category[] = JSON.parse(document.getElementById("categories-data")?.textContent ?? "[]");
+        const stockRulesData = JSON.parse(document.getElementById("stock-rules-data")?.textContent ?? "{}");
+        const rulesAvailable: boolean = !!stockRulesData.available;
+        const ingredientOptions: IngredientOption[] = stockRulesData.ingredients ?? [];
         const container = document.getElementById("categories-table")!;
 
         function esc(text: string): string {
@@ -81,12 +113,25 @@ const categories = (cats ?? []).map((c) => ({
             return { ok: res.ok, result };
         }
 
+        function ruleSummary(c: Category): string {
+            if (!rulesAvailable || c.rules.length === 0) return "";
+            const text = c.rules
+                .map((r) => {
+                    const ing = ingredientOptions.find((i) => i.id === r.ingredientId);
+                    return ing ? `${formatQty(r.quantityPerUnit, ing.unit)} de ${ing.name}` : "";
+                })
+                .filter(Boolean)
+                .join(" · ");
+            return text ? `<p class="text-xs text-gray-400">Cada unidad consume: ${esc(text)}</p>` : "";
+        }
+
         function render() {
             if (categories.length === 0) {
                 container.innerHTML = `<p class="px-4 py-8 text-center text-sm text-gray-400">Todavía no hay categorías.</p>`;
                 return;
             }
             container.innerHTML = `
+                <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                         <tr>
@@ -109,7 +154,10 @@ const categories = (cats ?? []).map((c) => ({
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
                                     <span class="flex h-9 w-9 items-center justify-center rounded-full text-lg" style="background:${esc(c.accentColor)}33">${esc(c.iconEmoji)}</span>
-                                    <p class="font-medium text-gray-900">${esc(c.name)}</p>
+                                    <div>
+                                        <p class="font-medium text-gray-900">${esc(c.name)}</p>
+                                        ${ruleSummary(c)}
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-right text-gray-600">${c.products}</td>
@@ -122,19 +170,22 @@ const categories = (cats ?? []).map((c) => ({
                             </td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <button data-action="edit" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Editar</button>
+                                ${rulesAvailable ? `<button data-action="rules" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Consumo</button>` : ""}
                                 <button data-action="toggle" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">${c.active ? "Ocultar" : "Mostrar"}</button>
                             </td>
                         </tr>`
                             )
                             .join("")}
                     </tbody>
-                </table>`;
+                </table>
+                </div>`;
 
             container.querySelectorAll<HTMLElement>("tr[data-id]").forEach((row) => {
                 const id = row.dataset.id!;
                 row.querySelector("[data-action='up']")?.addEventListener("click", () => move(id, -1));
                 row.querySelector("[data-action='down']")?.addEventListener("click", () => move(id, 1));
                 row.querySelector("[data-action='edit']")?.addEventListener("click", () => openForm(categories.find((c) => c.id === id)));
+                row.querySelector("[data-action='rules']")?.addEventListener("click", () => openRules(categories.find((c) => c.id === id)!));
                 row.querySelector("[data-action='toggle']")?.addEventListener("click", () => toggle(id));
             });
         }
@@ -164,6 +215,116 @@ const categories = (cats ?? []).map((c) => ({
             c.active = !c.active;
             render();
             toast(c.active ? "Categoría visible" : "Categoría oculta");
+        }
+
+        // Consumo por categoría: "cada unidad de esta categoría consume X de este ingrediente".
+        function openRules(category: Category) {
+            let draft: { ingredientId: string; quantity: string }[] = category.rules.map((r) => ({
+                ingredientId: r.ingredientId,
+                quantity: String(r.quantityPerUnit),
+            }));
+
+            const overlay = document.createElement("div");
+            overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+            document.body.appendChild(overlay);
+
+            function unitOf(ingredientId: string): string {
+                const ing = ingredientOptions.find((i) => i.id === ingredientId);
+                return ing ? UNIT_LABEL[ing.unit] : "";
+            }
+
+            function draw() {
+                overlay.innerHTML = `
+                <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+                    <h3 class="mb-1 text-base font-bold text-gray-900">Consumo de "${esc(category.name)}"</h3>
+                    <p class="mb-3 text-xs text-gray-400">
+                        Cada vez que se vende UNA unidad de un producto de esta categoría, se descuenta esta cantidad del
+                        ingrediente (se suma a lo que ya consuma el producto por su receta). Vale también para los productos nuevos.
+                    </p>
+                    <div data-role="rows" class="mb-2 space-y-2"></div>
+                    <button data-role="add" type="button" class="mb-3 text-sm font-semibold text-gray-600 underline">+ Agregar ingrediente</button>
+                    <p data-role="error" class="mb-2 text-xs text-red-600"></p>
+                    <div class="flex gap-2">
+                        <button data-role="cancel" type="button" class="flex-1 rounded-md border border-gray-200 py-2 text-sm font-semibold text-gray-600">Cancelar</button>
+                        <button data-role="save" type="button" class="flex-1 rounded-md bg-bechis-yellow py-2 text-sm font-bold text-ink">Guardar</button>
+                    </div>
+                </div>`;
+
+                const rowsEl = overlay.querySelector<HTMLElement>("[data-role='rows']")!;
+                if (draft.length === 0) {
+                    rowsEl.innerHTML = `<p class="text-sm text-gray-400">Esta categoría no descuenta nada extra.</p>`;
+                }
+                draft.forEach((entry, index) => {
+                    const row = document.createElement("div");
+                    row.className = "flex items-center gap-2";
+                    row.innerHTML = `
+                        <select data-role="ingredient" class="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-2 text-sm">
+                            <option value="">Elegí un ingrediente…</option>
+                            ${ingredientOptions
+                                .map(
+                                    (i) =>
+                                        `<option value="${i.id}" ${i.id === entry.ingredientId ? "selected" : ""}>${esc(i.name)}${i.active ? "" : " (inactivo)"}</option>`
+                                )
+                                .join("")}
+                        </select>
+                        <input data-role="qty" type="number" min="0" step="any" value="${esc(entry.quantity)}" placeholder="0" class="w-20 rounded-md border border-gray-200 px-2 py-2 text-sm" />
+                        <span data-role="unit" class="w-8 text-xs text-gray-400">${unitOf(entry.ingredientId)}</span>
+                        <button data-role="remove" type="button" class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-500">✕</button>`;
+                    row.querySelector<HTMLSelectElement>("[data-role='ingredient']")!.addEventListener("change", (e) => {
+                        entry.ingredientId = (e.target as HTMLSelectElement).value;
+                        row.querySelector("[data-role='unit']")!.textContent = unitOf(entry.ingredientId);
+                    });
+                    row.querySelector<HTMLInputElement>("[data-role='qty']")!.addEventListener("input", (e) => {
+                        entry.quantity = (e.target as HTMLInputElement).value;
+                    });
+                    row.querySelector("[data-role='remove']")!.addEventListener("click", () => {
+                        draft.splice(index, 1);
+                        draw();
+                    });
+                    rowsEl.appendChild(row);
+                });
+
+                overlay.querySelector("[data-role='add']")!.addEventListener("click", () => {
+                    draft.push({ ingredientId: "", quantity: "" });
+                    draw();
+                });
+                overlay.querySelector("[data-role='cancel']")!.addEventListener("click", () => overlay.remove());
+                overlay.querySelector("[data-role='save']")!.addEventListener("click", save);
+            }
+
+            overlay.addEventListener("click", (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            async function save() {
+                const errorEl = overlay.querySelector<HTMLElement>("[data-role='error']")!;
+                const rules: CategoryRule[] = [];
+                for (const entry of draft) {
+                    if (!entry.ingredientId && !entry.quantity) continue; // fila vacía: se ignora
+                    const qty = Number(entry.quantity);
+                    if (!entry.ingredientId || !(qty > 0)) {
+                        errorEl.textContent = "Cada fila necesita un ingrediente y una cantidad mayor a 0.";
+                        return;
+                    }
+                    rules.push({ ingredientId: entry.ingredientId, quantityPerUnit: qty });
+                }
+                if (new Set(rules.map((r) => r.ingredientId)).size !== rules.length) {
+                    errorEl.textContent = "Hay un ingrediente repetido.";
+                    return;
+                }
+
+                const { ok, result } = await api(`/api/categories/${category.id}/stock-rules`, "PUT", { rules });
+                if (!ok) {
+                    errorEl.textContent = result.error ?? "No se pudo guardar.";
+                    return;
+                }
+                category.rules = rules;
+                overlay.remove();
+                render();
+                toast("Consumo guardado");
+            }
+
+            draw();
         }
 
         function openForm(category?: Category) {
@@ -231,6 +392,7 @@ const categories = (cats ?? []).map((c) => ({
                         accentColor: c.accent_color,
                         products: 0,
                         activeProducts: 0,
+                        rules: [],
                     });
                 }
                 overlay.remove();

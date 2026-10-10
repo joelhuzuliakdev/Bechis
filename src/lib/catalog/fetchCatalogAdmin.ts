@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { StockUnit } from "@/lib/stock/units";
 
 export interface AdminProductListItem {
     id: string;
@@ -19,6 +20,8 @@ export interface ProductIngredientConfig {
     isRemovable: boolean;
     isAddableExtra: boolean;
     priceOverride: number | null;
+    /** Cuánto consume una unidad del producto (en la unidad del ingrediente). null = no descuenta. */
+    quantityPerUnit: number | null;
 }
 
 export interface AdminProductDetail {
@@ -31,6 +34,7 @@ export interface AdminProductDetail {
     imageUrl: string | null;
     stock: number;
     minStock: number;
+    trackStock: boolean;
     active: boolean;
     ingredients: ProductIngredientConfig[];
 }
@@ -44,6 +48,8 @@ export interface GlobalIngredient {
     id: string;
     name: string;
     extraPrice: number;
+    extraQuantity: number;
+    unit: StockUnit;
     stock: number;
     minStock: number;
     active: boolean;
@@ -75,8 +81,8 @@ export async function getProductAdminById(client: SupabaseClient, id: string): P
         .from("products")
         .select(
         `
-        id, category_id, name, slug, description, price, image_url, stock, min_stock, active,
-        product_ingredients ( ingredient_id, is_included, is_removable, is_addable_extra, price_override, ingredients ( name ) )
+        id, category_id, name, slug, description, price, image_url, stock, min_stock, track_stock, active,
+        product_ingredients ( ingredient_id, is_included, is_removable, is_addable_extra, price_override, quantity_per_unit, ingredients ( name ) )
         `
         )
         .eq("id", id)
@@ -95,6 +101,7 @@ export async function getProductAdminById(client: SupabaseClient, id: string): P
         imageUrl: raw.image_url,
         stock: raw.stock,
         minStock: raw.min_stock,
+        trackStock: raw.track_stock ?? true,
         active: raw.active,
         ingredients: (raw.product_ingredients ?? []).map((pi: any) => ({
         ingredientId: pi.ingredient_id,
@@ -103,6 +110,7 @@ export async function getProductAdminById(client: SupabaseClient, id: string): P
         isRemovable: pi.is_removable,
         isAddableExtra: pi.is_addable_extra,
         priceOverride: pi.price_override,
+        quantityPerUnit: pi.quantity_per_unit ?? null,
         })),
     };
 }
@@ -116,7 +124,7 @@ export async function listCategories(client: SupabaseClient): Promise<CategoryOp
 export async function listGlobalIngredients(client: SupabaseClient): Promise<GlobalIngredient[]> {
     const { data, error } = await client
         .from("ingredients")
-        .select("id, name, extra_price, stock, min_stock, active")
+        .select("id, name, extra_price, extra_quantity, unit, stock, min_stock, active")
         .order("name");
 
     if (error || !data) return [];
@@ -125,6 +133,8 @@ export async function listGlobalIngredients(client: SupabaseClient): Promise<Glo
         id: i.id,
         name: i.name,
         extraPrice: i.extra_price,
+        extraQuantity: i.extra_quantity ?? 1,
+        unit: (i.unit ?? "unidad") as StockUnit,
         stock: i.stock,
         minStock: i.min_stock,
         active: i.active,
