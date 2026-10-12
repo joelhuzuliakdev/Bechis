@@ -7,6 +7,34 @@ import type { Category, Product } from "@/types";
 
 const { slug } = Astro.params;
 
+// Solo para mostrar: agrupa las variantes de un mismo modelo y las ordena
+// Simple -> Doble -> Triple. No toca la base de datos ni el resto de la lógica.
+// Los productos cuyo nombre no termina en Simple/Doble/Triple quedan donde estaban.
+const VARIANT_RANK: Record<string, number> = { simple: 1, doble: 2, triple: 3 };
+
+function normalize(text: string): string {
+    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+function splitVariant(name: string): { model: string; rank: number } {
+    const match = normalize(name).match(/^(.*\S)\s+(simple|doble|triple)$/);
+    if (!match) return { model: normalize(name), rank: 0 };
+    return { model: match[1], rank: VARIANT_RANK[match[2]] };
+}
+
+function sortByVariant<T extends { name: string }>(list: T[]): T[] {
+    // Los modelos se mantienen en el orden en que aparecen hoy (primera aparición).
+    const groups = new Map<string, { item: T; rank: number }[]>();
+    for (const item of list) {
+        const { model, rank } = splitVariant(item.name);
+        if (!groups.has(model)) groups.set(model, []);
+        groups.get(model)!.push({ item, rank });
+    }
+    return [...groups.values()].flatMap((group) =>
+        group.sort((a, b) => a.rank - b.rank).map((entry) => entry.item)
+    );
+}
+
 const { data: category, error: categoryError } = await supabasePublic
     .from("categories")
     .select("id, name, slug, sort_order, active, icon_emoji, accent_color")
@@ -28,7 +56,7 @@ if (category) {
         .returns<Product[]>();
 
     if (error) console.error("Error cargando productos:", error.message);
-    products = data ?? [];
+    products = sortByVariant(data ?? []);
 }
 ---
 

@@ -10,7 +10,10 @@ const [products, ingredients] = await Promise.all([listProductStock(supabase), l
 
 <AdminLayout title="Stock" role={profile.role} userName={profile.fullName || profile.email || "Usuario"}>
     <div class="mb-5 flex items-center justify-between">
-        <p class="text-sm text-gray-500">Inventario de productos e ingredientes.</p>
+        <p class="text-sm text-gray-500">
+            Inventario de productos e ingredientes.
+            <span id="stock-live" class="ml-1 text-xs text-gray-400"></span>
+        </p>
         <a href="/admin/stock/movimientos" class="text-sm font-medium text-gray-500 underline">Ver historial de movimientos</a>
     </div>
 
@@ -30,166 +33,255 @@ const [products, ingredients] = await Promise.all([listProductStock(supabase), l
         import { formatQty, inputUnitsFor, toBaseUnit, type StockUnit } from "@/lib/stock/units";
 
         interface StockItem {
-        id: string;
-        name: string;
-        stock: number;
-        minStock: number;
-        unit: StockUnit;
+            id: string;
+            name: string;
+            stock: number;
+            minStock: number;
+            unit: StockUnit;
         }
 
+        type Target = "producto" | "ingrediente";
+
+        // Cada cuántos segundos se vuelve a pedir el stock mientras la pestaña está a la vista.
+        const REFRESH_SECONDS = 15;
+
         const data = JSON.parse(document.getElementById("stock-data")?.textContent ?? "{}");
+        const state: Record<Target, StockItem[]> = {
+            ingrediente: data.ingredients ?? [],
+            producto: data.products ?? [],
+        };
+        const containerIds: Record<Target, string> = {
+            ingrediente: "stock-table-ingrediente",
+            producto: "stock-table-producto",
+        };
 
         function esc(text: string): string {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function statusBadge(item: StockItem): string {
-        return item.stock <= item.minStock
-            ? `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">⚠️ Bajo stock</span>`
-            : `<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Disponible</span>`;
+            return item.stock <= item.minStock
+                ? `<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">⚠️ Bajo stock</span>`
+                : `<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Disponible</span>`;
         }
 
-        function renderTable(containerId: string, target: "producto" | "ingrediente", items: StockItem[]) {
-        const container = document.getElementById(containerId)!;
-
-        if (items.length === 0) {
-            container.innerHTML = `<p class="px-4 py-8 text-center text-sm text-gray-400">No hay nada cargado todavía.</p>`;
-            return;
+        function updateRowCells(row: Element, item: StockItem) {
+            const stockCell = row.querySelector("[data-role='stock-value']");
+            if (stockCell) stockCell.textContent = formatQty(item.stock, item.unit);
+            const minCell = row.querySelector("[data-role='min-value']");
+            if (minCell) minCell.textContent = formatQty(item.minStock, item.unit);
+            const badge = row.querySelector("[data-role='status-badge']");
+            if (badge) badge.innerHTML = statusBadge(item);
         }
 
-        container.innerHTML = `
-            <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-            <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                <th class="px-4 py-3">Nombre</th>
-                <th class="px-4 py-3 text-right">Stock actual</th>
-                <th class="px-4 py-3 text-right">Stock mínimo</th>
-                <th class="px-4 py-3">Estado</th>
-                <th class="px-4 py-3 text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-                ${items
-                .map(
-                    (item) => `
-                <tr data-item-id="${item.id}">
-                    <td class="px-4 py-3 font-medium text-gray-900">${esc(item.name)}</td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap" data-role="stock-value">${formatQty(item.stock, item.unit)}</td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap text-gray-500">${formatQty(item.minStock, item.unit)}</td>
-                    <td class="px-4 py-3" data-role="status-badge">${statusBadge(item)}</td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap">
-                    <button data-action="ingreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">+ Ingreso</button>
-                    <button data-action="egreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">- Egreso</button>
-                    <button data-action="correccion" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Corregir</button>
-                    </td>
-                </tr>
-                `
-                )
-                .join("")}
-            </tbody>
-            </table>
-            </div>
-        `;
+        function renderTable(target: Target) {
+            const container = document.getElementById(containerIds[target])!;
+            const items = state[target];
 
-        container.querySelectorAll<HTMLElement>("[data-item-id]").forEach((row) => {
-            const itemId = row.dataset.itemId!;
-            const item = items.find((i) => i.id === itemId)!;
+            if (items.length === 0) {
+                container.innerHTML = `<p class="px-4 py-8 text-center text-sm text-gray-400">No hay nada cargado todavía.</p>`;
+                return;
+            }
 
-            row.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((btn) => {
-            btn.addEventListener("click", () => openMovementModal(target, item, btn.dataset.action as any, row));
+            container.innerHTML = `
+                <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                <thead class="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                    <th class="px-4 py-3">Nombre</th>
+                    <th class="px-4 py-3 text-right">Stock actual</th>
+                    <th class="px-4 py-3 text-right">Stock mínimo</th>
+                    <th class="px-4 py-3">Estado</th>
+                    <th class="px-4 py-3 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    ${items
+                        .map(
+                            (item) => `
+                    <tr data-item-id="${item.id}">
+                        <td class="px-4 py-3 font-medium text-gray-900">${esc(item.name)}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap" data-role="stock-value">${formatQty(item.stock, item.unit)}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap text-gray-500" data-role="min-value">${formatQty(item.minStock, item.unit)}</td>
+                        <td class="px-4 py-3" data-role="status-badge">${statusBadge(item)}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button data-action="ingreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">+ Ingreso</button>
+                        <button data-action="egreso" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">- Egreso</button>
+                        <button data-action="correccion" class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Corregir</button>
+                        </td>
+                    </tr>
+                    `
+                        )
+                        .join("")}
+                </tbody>
+                </table>
+                </div>
+            `;
+
+            container.querySelectorAll<HTMLElement>("[data-item-id]").forEach((row) => {
+                const itemId = row.dataset.itemId!;
+                row.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((btn) => {
+                    // Se busca el ítem al hacer click: así siempre se usa el stock más reciente.
+                    btn.addEventListener("click", () => {
+                        const item = state[target].find((i) => i.id === itemId);
+                        if (item) openMovementModal(target, item, btn.dataset.action as any, row);
+                    });
+                });
             });
-        });
         }
 
         function openMovementModal(
-        target: "producto" | "ingrediente",
-        item: StockItem,
-        type: "ingreso" | "egreso" | "correccion",
-        row: HTMLElement
+            target: Target,
+            item: StockItem,
+            type: "ingreso" | "egreso" | "correccion",
+            row: HTMLElement
         ) {
-        const titles = { ingreso: "Registrar ingreso", egreso: "Registrar egreso", correccion: "Corregir stock" };
-        const options = inputUnitsFor(item.unit);
-        // Gramos -> se puede escribir en kg o g; ml -> l o ml; unidades -> u.
-        const unitControl =
-            options.length > 1
-            ? `<select data-role="unit" class="rounded-md border border-gray-200 px-2 py-2 text-sm">${options
-                .map((o) => `<option value="${o.factor}">${o.label}</option>`)
-                .join("")}</select>`
-            : `<span class="flex items-center px-1 text-sm text-gray-500">${options[0].label}</span>`;
+            const titles = { ingreso: "Registrar ingreso", egreso: "Registrar egreso", correccion: "Corregir stock" };
+            const options = inputUnitsFor(item.unit);
+            // Gramos -> se puede escribir en kg o g; ml -> l o ml; unidades -> u.
+            const unitControl =
+                options.length > 1
+                    ? `<select data-role="unit" class="rounded-md border border-gray-200 px-2 py-2 text-sm">${options
+                          .map((o) => `<option value="${o.factor}">${o.label}</option>`)
+                          .join("")}</select>`
+                    : `<span class="flex items-center px-1 text-sm text-gray-500">${options[0].label}</span>`;
 
-        const overlay = document.createElement("div");
-        overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
-        overlay.innerHTML = `
-            <div class="w-full max-w-xs rounded-lg bg-white p-5 shadow-xl">
-            <h3 class="mb-1 text-base font-bold text-gray-900">${titles[type]}</h3>
-            <p class="mb-3 text-sm text-gray-500">${esc(item.name)} — stock actual: ${formatQty(item.stock, item.unit)}</p>
-            <label class="mb-1 block text-xs font-medium text-gray-500">${type === "correccion" ? "Nuevo stock" : "Cantidad"}</label>
-            <div class="mb-3 flex gap-2">
-                <input data-role="qty" type="number" min="0" step="any" class="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm" />
-                ${unitControl}
-            </div>
-            <label class="mb-1 block text-xs font-medium text-gray-500">Motivo (opcional)</label>
-            <input data-role="reason" type="text" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
-            <p data-role="error" class="mb-2 text-xs text-red-600"></p>
-            <div class="flex gap-2">
-                <button data-role="cancel" class="flex-1 rounded-md border border-gray-200 py-2 text-sm font-semibold text-gray-600">Cancelar</button>
-                <button data-role="confirm" class="flex-1 rounded-md bg-bechis-yellow py-2 text-sm font-bold text-ink">Confirmar</button>
-            </div>
-            </div>
-        `;
-        document.body.appendChild(overlay);
+            const overlay = document.createElement("div");
+            overlay.dataset.stockModal = "1";
+            overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+            overlay.innerHTML = `
+                <div class="w-full max-w-xs rounded-lg bg-white p-5 shadow-xl">
+                <h3 class="mb-1 text-base font-bold text-gray-900">${titles[type]}</h3>
+                <p class="mb-3 text-sm text-gray-500">${esc(item.name)} — stock actual: <span data-role="modal-stock">${formatQty(item.stock, item.unit)}</span></p>
+                <label class="mb-1 block text-xs font-medium text-gray-500">${type === "correccion" ? "Nuevo stock" : "Cantidad"}</label>
+                <div class="mb-3 flex gap-2">
+                    <input data-role="qty" type="number" min="0" step="any" class="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm" />
+                    ${unitControl}
+                </div>
+                <label class="mb-1 block text-xs font-medium text-gray-500">Motivo (opcional)</label>
+                <input data-role="reason" type="text" class="mb-3 w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
+                <p data-role="error" class="mb-2 text-xs text-red-600"></p>
+                <div class="flex gap-2">
+                    <button data-role="cancel" class="flex-1 rounded-md border border-gray-200 py-2 text-sm font-semibold text-gray-600">Cancelar</button>
+                    <button data-role="confirm" class="flex-1 rounded-md bg-bechis-yellow py-2 text-sm font-bold text-ink">Confirmar</button>
+                </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
 
-        overlay.querySelector("[data-role='cancel']")?.addEventListener("click", () => overlay.remove());
-        overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
-
-        overlay.querySelector("[data-role='confirm']")?.addEventListener("click", async () => {
-            const errorEl = overlay.querySelector<HTMLElement>("[data-role='error']")!;
-            const raw = overlay.querySelector<HTMLInputElement>("[data-role='qty']")!.value;
-            const qty = raw === "" ? -1 : Number(raw);
-            const reason = overlay.querySelector<HTMLInputElement>("[data-role='reason']")!.value.trim();
-            const factor = Number(overlay.querySelector<HTMLSelectElement>("[data-role='unit']")?.value ?? options[0].factor);
-
-            if (!(qty >= 0)) {
-            errorEl.textContent = "Ingresá un valor válido.";
-            return;
-            }
-
-            // Lo escrito (ej. 2,5 kg) se convierte a la unidad base (2500 g) antes de enviar.
-            const baseQty = toBaseUnit(qty, factor);
-            if (type !== "correccion" && baseQty <= 0) {
-            errorEl.textContent = "La cantidad tiene que ser mayor a 0.";
-            return;
-            }
-
-            const res = await fetch("/api/stock/movement", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ target, itemId: item.id, type, quantity: baseQty, reason: reason || undefined }),
+            overlay.querySelector("[data-role='cancel']")?.addEventListener("click", () => overlay.remove());
+            overlay.addEventListener("click", (e) => {
+                if (e.target === overlay) overlay.remove();
             });
-            const result = await res.json().catch(() => ({}));
 
-            if (!res.ok) {
-            errorEl.textContent =
-                result.code === "insufficient_stock" && typeof result.available === "number"
-                ? `No hay stock suficiente. Disponible: ${formatQty(result.available, item.unit)}.`
-                : (result.error ?? "No se pudo registrar el movimiento.");
-            return;
-            }
+            overlay.querySelector("[data-role='confirm']")?.addEventListener("click", async () => {
+                const errorEl = overlay.querySelector<HTMLElement>("[data-role='error']")!;
+                const raw = overlay.querySelector<HTMLInputElement>("[data-role='qty']")!.value;
+                const qty = raw === "" ? -1 : Number(raw);
+                const reason = overlay.querySelector<HTMLInputElement>("[data-role='reason']")!.value.trim();
+                const factor = Number(overlay.querySelector<HTMLSelectElement>("[data-role='unit']")?.value ?? options[0].factor);
 
-            item.stock = result.newStock;
-            row.querySelector("[data-role='stock-value']")!.textContent = formatQty(item.stock, item.unit);
-            row.querySelector("[data-role='status-badge']")!.innerHTML = statusBadge(item);
+                if (!(qty >= 0)) {
+                    errorEl.textContent = "Ingresá un valor válido.";
+                    return;
+                }
 
-            overlay.remove();
-        });
+                // Lo escrito (ej. 2,5 kg) se convierte a la unidad base (2500 g) antes de enviar.
+                const baseQty = toBaseUnit(qty, factor);
+                if (type !== "correccion" && baseQty <= 0) {
+                    errorEl.textContent = "La cantidad tiene que ser mayor a 0.";
+                    return;
+                }
+
+                const res = await fetch("/api/stock/movement", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ target, itemId: item.id, type, quantity: baseQty, reason: reason || undefined }),
+                });
+                const result = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    errorEl.textContent =
+                        result.code === "insufficient_stock" && typeof result.available === "number"
+                            ? `No hay stock suficiente. Disponible: ${formatQty(result.available, item.unit)}.`
+                            : (result.error ?? "No se pudo registrar el movimiento.");
+                    return;
+                }
+
+                item.stock = result.newStock;
+                updateRowCells(row, item);
+
+                overlay.remove();
+            });
         }
 
-        renderTable("stock-table-ingrediente", "ingrediente", data.ingredients ?? []);
-        renderTable("stock-table-producto", "producto", data.products ?? []);
+        // ---------------------------------------------------------------------
+        // Actualización automática (sin recargar la página)
+        // ---------------------------------------------------------------------
+        const liveEl = document.getElementById("stock-live");
+        let refreshing = false;
+
+        function modalOpen(): boolean {
+            return !!document.querySelector("[data-stock-modal]");
+        }
+
+        function mergeTarget(target: Target, fresh: StockItem[]) {
+            const current = state[target];
+            const sameShape =
+                current.length === fresh.length && current.every((it, idx) => it.id === fresh[idx].id);
+
+            if (!sameShape) {
+                // Se agregó o quitó algo: se redibuja la tabla completa.
+                state[target] = fresh;
+                renderTable(target);
+                return;
+            }
+
+            // Misma lista: solo se actualizan los números de cada fila.
+            const container = document.getElementById(containerIds[target])!;
+            fresh.forEach((f, idx) => {
+                const item = current[idx];
+                const changed = item.stock !== f.stock || item.minStock !== f.minStock || item.unit !== f.unit || item.name !== f.name;
+                Object.assign(item, f);
+                if (changed) {
+                    const row = container.querySelector(`[data-item-id="${item.id}"]`);
+                    if (row) updateRowCells(row, item);
+                }
+            });
+        }
+
+        async function refreshStock() {
+            if (refreshing || document.hidden || modalOpen()) return;
+            refreshing = true;
+            try {
+                const res = await fetch("/api/stock/list", { cache: "no-store" });
+                if (!res.ok) return; // 401/403: la sesión cambió, el guard de sesión se encarga.
+                const fresh = await res.json();
+                if (modalOpen()) return; // se abrió un modal mientras cargaba
+                mergeTarget("ingrediente", fresh.ingredients ?? []);
+                mergeTarget("producto", fresh.products ?? []);
+                if (liveEl) {
+                    liveEl.textContent = `· Actualizado ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+                }
+            } catch {
+                // Sin conexión momentánea: se reintenta en el próximo ciclo.
+            } finally {
+                refreshing = false;
+            }
+        }
+
+        renderTable("ingrediente");
+        renderTable("producto");
+
+        setInterval(refreshStock, REFRESH_SECONDS * 1000);
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) refreshStock();
+        });
+        window.addEventListener("focus", refreshStock);
+        window.addEventListener("pageshow", (e) => {
+            if ((e as PageTransitionEvent).persisted) refreshStock();
+        });
     </script>
 </AdminLayout>
