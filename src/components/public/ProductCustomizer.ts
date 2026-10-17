@@ -7,7 +7,8 @@
 
 import type { ProductWithIngredients } from "@/types";
 import { calculateProductPrice } from "@/lib/pricing/calculatePrice";
-import { addToCart } from "@/stores/cart";
+import { addToCart, cartCount } from "@/stores/cart";
+import { markJustAdded } from "@/lib/ui/cartAdded";
 import { showToast } from "@/stores/toast"; // AJUSTAR si tu export real está en otro lado
 
 interface CustomizerState {
@@ -113,6 +114,9 @@ export function attachProductCustomizer(rootId: string) {
       quantity: state.quantity,
     });
 
+    // Cuántas unidades tenía el carrito antes de agregar (lo usa el aviso del catálogo).
+    const countBefore = cartCount.get();
+
     addToCart({
       productId: product.id,
       productName: product.name,
@@ -128,6 +132,9 @@ export function attachProductCustomizer(rootId: string) {
         price: e.price,
       })),
     });
+
+    // Deja anotado qué se agregó, para que el catálogo muestre el resumen del carrito al volver.
+    markJustAdded({ productId: product.id, name: product.name, qty: state.quantity, countBefore });
 
     showToast("✓ Agregado al carrito");
     setTimeout(() => {

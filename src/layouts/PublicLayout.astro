@@ -1,6 +1,8 @@
 ---
 import "../styles/globals.css";
 import SiteFooter from "@/components/public/SiteFooter.astro";
+import CartSummaryBar from "@/components/public/CartSummaryBar.astro";
+import CartAddedModal from "@/components/public/CartAddedModal.astro";
 
 export interface Props {
     title?: string;
@@ -46,6 +48,7 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
             </div>
 
             <a
+                id="cart-link"
                 href="/carrito"
                 aria-label="Ver carrito"
                 class="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink-muted bg-ink-soft text-xl transition-colors hover:bg-white/10"
@@ -57,6 +60,8 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
                 ></span>
             </a>
         </header>
+
+        <CartSummaryBar />
 
         <main class="flex-1">
             <slot />
@@ -70,6 +75,8 @@ const { title = "Bechis", showBack = false, backHref = "/" } = Astro.props;
         class="pointer-events-none fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 translate-y-4 whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white opacity-0 shadow-lg transition-all duration-200"
         >
         </div>
+
+        <CartAddedModal />
 
         <script>
         // Único JS que corre en TODAS las páginas públicas: mantiene el

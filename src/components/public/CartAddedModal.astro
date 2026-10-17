@@ -1,0 +1,180 @@
+---
+// Ventana que aparece en el catálogo después de agregar un producto: muestra
+// qué hay en el carrito para que el cliente no agregue algo repetido sin querer.
+// Se abre sola, una vez, cuando el catálogo carga y hay un "recado" de
+// src/lib/ui/cartAdded.ts. No cambia el carrito ni el flujo de compra.
+---
+
+<div
+    id="cart-added-modal"
+    class="fixed inset-0 z-[110] hidden items-end justify-center bg-black/70 sm:items-center sm:p-6"
+>
+    <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cart-added-title"
+        class="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-bechis-yellow bg-ink-soft p-5 text-white shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6"
+    >
+        <div class="flex items-center gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bechis-yellow text-lg font-bold text-ink" aria-hidden="true">✓</span>
+            <div class="min-w-0">
+                <h2 id="cart-added-title" class="font-display text-lg leading-snug">¡Producto agregado al carrito!</h2>
+                <p id="cart-added-name" class="truncate text-sm text-white/60"></p>
+            </div>
+        </div>
+
+        <div
+            id="cart-added-repeat"
+            class="mt-4 hidden rounded-lg border border-bechis-yellow bg-bechis-yellow/15 px-3 py-2.5 text-sm font-semibold leading-snug"
+        >
+        </div>
+
+        <p class="mb-1 mt-5 text-[11px] font-semibold uppercase tracking-widest text-white/50">Tu carrito</p>
+        <ul id="cart-added-lines" class="divide-y divide-white/10"></ul>
+
+        <div class="mt-1 flex items-center justify-between border-t border-white/25 pt-3">
+            <span id="cart-added-count" class="text-sm text-white/70"></span>
+            <span id="cart-added-total" class="text-xl font-bold tabular-nums text-bechis-yellow"></span>
+        </div>
+
+        <div class="mt-5 flex flex-col gap-2.5">
+            <a
+                id="cart-added-go"
+                href="/carrito"
+                class="flex h-12 items-center justify-center rounded-xl bg-bechis-yellow text-[15px] font-bold text-ink transition-opacity hover:opacity-90"
+            >
+                Ver carrito y finalizar
+            </a>
+            <button
+                id="cart-added-close"
+                type="button"
+                class="h-12 rounded-xl border border-white/25 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
+            >
+                Seguir pidiendo
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    import { cartItems, cartSubtotal, cartCount, lineTotal } from "@/stores/cart";
+    import { consumeJustAdded } from "@/lib/ui/cartAdded";
+
+    // false = la ventana sale solo cuando es el primer producto del carrito o cuando
+    // el cliente agrega un producto que YA tenía. true = sale en cada producto agregado.
+    const SHOW_ON_EVERY_ADD = false;
+
+    const modal = document.getElementById("cart-added-modal");
+    const nameEl = document.getElementById("cart-added-name");
+    const repeatEl = document.getElementById("cart-added-repeat");
+    const linesEl = document.getElementById("cart-added-lines");
+    const countEl = document.getElementById("cart-added-count");
+    const totalEl = document.getElementById("cart-added-total");
+    const goBtn = document.getElementById("cart-added-go");
+    const closeBtn = document.getElementById("cart-added-close");
+
+    const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+    const onCatalog = location.pathname === "/" || location.pathname.startsWith("/categoria");
+
+    function closeModal() {
+        if (!modal) return;
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        document.body.style.overflow = "";
+        document.removeEventListener("keydown", onKeydown);
+    }
+
+    function onKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") closeModal();
+    }
+
+    function bumpCartIcon() {
+        const link = document.getElementById("cart-link");
+        if (!link || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        link.animate(
+            [
+                { transform: "scale(1)" },
+                { transform: "scale(1.18) rotate(-6deg)" },
+                { transform: "scale(1)" },
+            ],
+            { duration: 500, easing: "ease" }
+        );
+    }
+
+    function openModal(productId: string, name: string, repeatedQty: number) {
+        if (!modal || !nameEl || !repeatEl || !linesEl || !countEl || !totalEl) return;
+
+        const items = cartItems.get();
+        nameEl.textContent = name;
+
+        if (repeatedQty > 0) {
+            repeatEl.textContent = `Ya tenías este producto en el carrito. Ahora llevás ${repeatedQty}. Si fue sin querer, tocá "Ver carrito y finalizar" para corregirlo.`;
+            repeatEl.classList.remove("hidden");
+        } else {
+            repeatEl.classList.add("hidden");
+        }
+
+        linesEl.replaceChildren();
+        for (const item of items) {
+            const li = document.createElement("li");
+            li.className = "flex items-start justify-between gap-3 py-2.5";
+
+            const left = document.createElement("div");
+            left.className = "min-w-0";
+            const title = document.createElement("p");
+            title.className = "text-sm font-semibold " + (item.productId === productId ? "text-bechis-yellow" : "text-white");
+            title.textContent = `${item.quantity} × ${item.productName}`;
+            left.appendChild(title);
+
+            const details: string[] = [];
+            if (item.removedIncluded.length) details.push("sin " + item.removedIncluded.map((r) => r.name).join(", "));
+            if (item.addedExtras.length) details.push("+ " + item.addedExtras.map((e) => e.name).join(", "));
+            if (details.length) {
+                const sub = document.createElement("p");
+                sub.className = "text-xs text-white/50";
+                sub.textContent = details.join(" · ");
+                left.appendChild(sub);
+            }
+
+            const price = document.createElement("span");
+            price.className = "shrink-0 text-sm tabular-nums text-white/80";
+            price.textContent = money.format(lineTotal(item));
+
+            li.append(left, price);
+            linesEl.appendChild(li);
+        }
+
+        const count = cartCount.get();
+        countEl.textContent = count === 1 ? "1 producto" : `${count} productos`;
+        totalEl.textContent = money.format(cartSubtotal.get());
+
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", onKeydown);
+        goBtn?.focus();
+        bumpCartIcon();
+    }
+
+    closeBtn?.addEventListener("click", closeModal);
+    modal?.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Al cargar el catálogo: si venimos de agregar un producto, decidir si se muestra.
+    if (onCatalog) {
+        const added = consumeJustAdded();
+        if (added) {
+            const totalOfProduct = cartItems
+                .get()
+                .filter((i) => i.productId === added.productId)
+                .reduce((sum, i) => sum + i.quantity, 0);
+            const alreadyHad = totalOfProduct > added.qty; // ya tenía este producto antes de agregar
+            const wasEmpty = added.countBefore === 0;
+
+            if (cartCount.get() > 0 && (SHOW_ON_EVERY_ADD || wasEmpty || alreadyHad)) {
+                openModal(added.productId, added.name, alreadyHad ? totalOfProduct : 0);
+            }
+        }
+    }
+</script>
